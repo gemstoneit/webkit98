@@ -1654,7 +1654,7 @@ void JSGlobalObject::init(VM& vm)
     WIN98_TRACE("JSGlobalObject::init: lazy builtin type batch end");
 
 #undef CREATE_PROTOTYPE_FOR_LAZY_TYPE
-	    
+
     // Constructors
 
     WIN98_TRACE("JSGlobalObject::init: ObjectConstructor create begin");
