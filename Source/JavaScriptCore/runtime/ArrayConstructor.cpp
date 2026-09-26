@@ -67,9 +67,6 @@ const ClassInfo ArrayConstructor::s_info = { "Function"_s, &InternalFunction::s_
 static JSC_DECLARE_HOST_FUNCTION(callArrayConstructor);
 static JSC_DECLARE_HOST_FUNCTION(constructWithArrayConstructor);
 static JSC_DECLARE_HOST_FUNCTION(arrayConstructorOf);
-#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
-static JSC_DECLARE_HOST_FUNCTION(arrayConstructorFromLegacy);
-#endif
 
 ArrayConstructor::ArrayConstructor(VM& vm, Structure* structure)
     : InternalFunction(vm, structure, callArrayConstructor, constructWithArrayConstructor)
@@ -84,9 +81,6 @@ void ArrayConstructor::finishCreation(VM& vm, JSGlobalObject* globalObject, Arra
     JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->of, arrayConstructorOf, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, ImplementationVisibility::Public, ArrayConstructorOfIntrinsic);
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->isArray, arrayConstructorIsArrayCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
 
-#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
-    JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->from, arrayConstructorFromLegacy, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Public);
-#endif
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().fromPrivateName(), arrayConstructorFromCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().fromAsyncPublicName(), arrayConstructorFromAsyncCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
 }
@@ -645,19 +639,11 @@ JSC_DEFINE_HOST_FUNCTION(arrayConstructorPrivateFromFastWithoutMapFn, (JSGlobalO
         }
     } else if (items && items.isCell() && items.asCell()->type() == JSSetType) {
         // For `Array.from(set)`
-#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
-        WIN98_TRACE("arrayConstructorPrivateFromFastWithoutMapFn: legacy set fast begin");
-        auto* set = jsCast<JSSet*>(items.asCell());
-        result = tryCreateArrayFromSet(globalObject, set);
-        RETURN_IF_EXCEPTION(scope, { });
-        WIN98_TRACE("arrayConstructorPrivateFromFastWithoutMapFn: legacy set fast end");
-#else
         auto* set = jsCast<JSSet*>(items.asCell());
         if (set->isIteratorProtocolFastAndNonObservable()) [[likely]] {
             result = tryCreateArrayFromSet(globalObject, set);
             RETURN_IF_EXCEPTION(scope, { });
         }
-#endif
     } else if (items && items.isCell() && items.asCell()->type() == JSMapIteratorType) {
         // For `Array.from(map.keys())`, `Array.from(map.values())`
         auto* mapIterator = jsCast<JSMapIterator*>(items.asCell());
@@ -670,66 +656,5 @@ JSC_DEFINE_HOST_FUNCTION(arrayConstructorPrivateFromFastWithoutMapFn, (JSGlobalO
         return JSValue::encode(result);
     return JSValue::encode(jsUndefined());
 }
-
-#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
-JSC_DEFINE_HOST_FUNCTION(arrayConstructorFromLegacy, (JSGlobalObject* globalObject, CallFrame* callFrame))
-{
-    WIN98_TRACE("arrayConstructorFromLegacy: enter");
-    VM& vm = globalObject->vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
-    JSValue items = callFrame->argument(0);
-    if (items.isUndefinedOrNull())
-        return throwVMTypeError(globalObject, scope, "Array.from requires an array-like object - not null or undefined"_s);
-
-    if (isJSArray(items)) {
-        WIN98_TRACE("arrayConstructorFromLegacy: array fast begin");
-        JSArray* result = tryCloneArrayFromFast<ArrayFillMode::Undefined>(globalObject, items);
-        RETURN_IF_EXCEPTION(scope, { });
-        if (result) {
-            WIN98_TRACE("arrayConstructorFromLegacy: array fast return");
-            return JSValue::encode(result);
-        }
-    }
-
-    if (items.isCell() && items.asCell()->type() == JSSetType) {
-        WIN98_TRACE("arrayConstructorFromLegacy: set fast begin");
-        JSArray* result = tryCreateArrayFromSet(globalObject, jsCast<JSSet*>(items.asCell()));
-        RETURN_IF_EXCEPTION(scope, { });
-        if (result) {
-            WIN98_TRACE("arrayConstructorFromLegacy: set fast return");
-            return JSValue::encode(result);
-        }
-    }
-
-    WIN98_TRACE("arrayConstructorFromLegacy: array-like begin");
-    JSObject* arrayLike = items.toObject(globalObject);
-    RETURN_IF_EXCEPTION(scope, { });
-    uint64_t length = toLength(globalObject, arrayLike);
-    RETURN_IF_EXCEPTION(scope, { });
-
-    if (length > std::numeric_limits<uint32_t>::max()) [[unlikely]] {
-        throwRangeError(globalObject, scope, LengthExceededTheMaximumArrayLengthError);
-        return encodedJSValue();
-    }
-
-    auto* result = constructEmptyArray(globalObject, nullptr, static_cast<uint32_t>(length));
-    RETURN_IF_EXCEPTION(scope, { });
-
-    for (uint64_t index = 0; index < length; ++index) {
-        JSValue value = getProperty(globalObject, arrayLike, index);
-        RETURN_IF_EXCEPTION(scope, { });
-        if (value) {
-            result->putDirectIndex(globalObject, index, value, 0, PutDirectIndexShouldThrow);
-            RETURN_IF_EXCEPTION(scope, { });
-        }
-    }
-
-    scope.release();
-    setLength(globalObject, vm, result, length);
-    WIN98_TRACE("arrayConstructorFromLegacy: array-like return");
-    return JSValue::encode(result);
-}
-#endif
 
 } // namespace JSC
