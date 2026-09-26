@@ -204,7 +204,7 @@ class SourceFile
             else
                 '$(SRCROOT)/' + @path.to_s
             end
-        elsif $mode == :GenerateBundles || !derived?
+        elsif ($mode == :GenerateBundles && @unifiable) || !derived?
             @path.to_s
         else
             ($derivedSourcesPath + @path).to_s
