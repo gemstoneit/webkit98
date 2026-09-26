@@ -196,6 +196,20 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 StackBounds StackBounds::currentThreadStackBoundsInternal()
 {
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && WEBKIT_WINDOWS_LEGACY_TARGET
+    char stackMarker;
+    MEMORY_BASIC_INFORMATION memoryInformation;
+    if (VirtualQuery(&stackMarker, &memoryInformation, sizeof(memoryInformation))) {
+        void* origin = static_cast<char*>(memoryInformation.BaseAddress) + memoryInformation.RegionSize;
+        void* bound = memoryInformation.AllocationBase;
+        if (&stackMarker < origin && &stackMarker > bound)
+            return StackBounds { origin, bound };
+    }
+
+    void* origin = &stackMarker + 8 * MB;
+    void* bound = &stackMarker - 8 * MB;
+    return StackBounds { origin, bound };
+#else
     ULONG_PTR lowLimit = 0;
     ULONG_PTR highLimit = 0;
     GetCurrentThreadStackLimits(&lowLimit, &highLimit);
@@ -203,6 +217,7 @@ StackBounds StackBounds::currentThreadStackBoundsInternal()
     void* origin = reinterpret_cast<void*>(highLimit);
     void* bound = reinterpret_cast<void*>(lowLimit);
     return StackBounds { origin, bound };
+#endif
 }
 
 #else

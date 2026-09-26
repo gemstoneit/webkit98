@@ -53,12 +53,16 @@ static constexpr size_t ramSizeGuess = 512 * MB;
 static size_t computeRAMSize()
 {
 #if OS(WINDOWS)
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET)
+    return ramSizeGuess;
+#else
     MEMORYSTATUSEX status;
     status.dwLength = sizeof(status);
     bool result = GlobalMemoryStatusEx(&status);
     if (!result)
         return ramSizeGuess;
     return status.ullTotalPhys;
+#endif
 #elif USE(SYSTEM_MALLOC)
 #if OS(LINUX) || OS(FREEBSD)
     struct sysinfo si;

@@ -61,6 +61,10 @@
 #include <array>
 #endif
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#endif
+
 #if HAVE(QOS_CLASSES)
 #include <dispatch/dispatch.h>
 #endif
@@ -316,6 +320,9 @@ protected:
     explicit Thread(SchedulingPolicy schedulingPolicy)
         : m_isRealtime(schedulingPolicy == SchedulingPolicy::Realtime)
     {
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+        win98Trace("Thread::Thread ctor body");
+#endif
     }
 
     void initializeInThread();

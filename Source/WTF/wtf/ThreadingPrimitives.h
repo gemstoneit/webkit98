@@ -40,7 +40,13 @@
 #include <windows.h>
 #endif
 
-#if USE(PTHREADS)
+#if OS(WINDOWS) && defined(WEBKIT_WINDOWS_LEGACY_TARGET) && WEBKIT_WINDOWS_LEGACY_TARGET
+#define WTF_USE_PTHREADS_ON_WINDOWS_LEGACY 1
+#else
+#define WTF_USE_PTHREADS_ON_WINDOWS_LEGACY 0
+#endif
+
+#if USE(PTHREADS) || WTF_USE_PTHREADS_ON_WINDOWS_LEGACY
 #include <pthread.h>
 #if !defined(PTHREAD_KEYS_MAX)
 // PTHREAD_KEYS_MAX is not defined in bionic nor in Hurd, so explicitly define it here.
@@ -52,20 +58,26 @@ namespace WTF {
 
 using ThreadFunction = void (*)(void* argument);
 
-#if USE(PTHREADS)
+#if OS(WINDOWS)
+using ThreadIdentifier = uint32_t;
+using PlatformThreadHandle = HANDLE;
+using ThreadSpecificKey = DWORD;
+#elif USE(PTHREADS)
 using PlatformThreadHandle = pthread_t;
-using PlatformMutex = pthread_mutex_t;
-using PlatformCondition = pthread_cond_t;
 using ThreadSpecificKey = pthread_key_t;
 #if OS(LINUX)
 using ThreadIdentifier = pid_t;
 #endif
+#else
+#error "Not supported platform"
+#endif
+
+#if USE(PTHREADS) || WTF_USE_PTHREADS_ON_WINDOWS_LEGACY
+using PlatformMutex = pthread_mutex_t;
+using PlatformCondition = pthread_cond_t;
 #elif OS(WINDOWS)
-using ThreadIdentifier = uint32_t;
-using PlatformThreadHandle = HANDLE;
 using PlatformMutex = SRWLOCK;
 using PlatformCondition = CONDITION_VARIABLE;
-using ThreadSpecificKey = DWORD;
 #else
 #error "Not supported platform"
 #endif
@@ -84,7 +96,7 @@ public:
     PlatformMutex& impl() { return m_mutex; }
 
 private:
-#if USE(PTHREADS)
+#if USE(PTHREADS) || WTF_USE_PTHREADS_ON_WINDOWS_LEGACY
     PlatformMutex m_mutex = PTHREAD_MUTEX_INITIALIZER;
 #elif OS(WINDOWS)
     PlatformMutex m_mutex = SRWLOCK_INIT;
@@ -107,7 +119,7 @@ public:
     WTF_EXPORT_PRIVATE void broadcast();
     
 private:
-#if USE(PTHREADS)
+#if USE(PTHREADS) || WTF_USE_PTHREADS_ON_WINDOWS_LEGACY
     PlatformCondition m_condition = PTHREAD_COND_INITIALIZER;
 #elif OS(WINDOWS)
     PlatformCondition m_condition = CONDITION_VARIABLE_INIT;

@@ -91,7 +91,7 @@ public:
         : m_value(encodeFunc(ptr))
     { }
 
-#if OS(WINDOWS)
+#if WTF_SYSV_ABI_IS_DISTINCT
     template<typename Out, typename... In>
     constexpr CodePtr(Out(SYSV_ABI *ptr)(In...))
         : m_value(encodeFunc(ptr))

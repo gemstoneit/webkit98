@@ -150,12 +150,14 @@ void SignalHandlers::finalize()
     RELEASE_ASSERT(handlers.initState == SignalHandlers::InitState::Initializing);
     handlers.initState = SignalHandlers::InitState::Finalized;
 
+#if !defined(WEBKIT_WINDOWS_LEGACY_TARGET)
     for (unsigned i = 0; i < numberOfSignals; ++i) {
         if (handlers.numberOfHandlers[i]) {
             AddVectoredExceptionHandler(1, vectoredHandler);
             break;
         }
     }
+#endif
 }
 
 } // namespace WTF

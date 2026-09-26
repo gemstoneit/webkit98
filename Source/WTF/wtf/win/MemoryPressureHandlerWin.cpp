@@ -26,20 +26,28 @@
 #include "config.h"
 #include <wtf/MemoryPressureHandler.h>
 
-#include <psapi.h>
 #include <wtf/NeverDestroyed.h>
+
+#if !defined(WEBKIT_WINDOWS_LEGACY_TARGET)
+#include <psapi.h>
+#endif
 
 namespace WTF {
 
 void MemoryPressureHandler::platformInitialize()
 {
+#if !defined(WEBKIT_WINDOWS_LEGACY_TARGET)
     m_lowMemoryHandle = Win32Handle::adopt(::CreateMemoryResourceNotification(LowMemoryResourceNotification));
+#endif
 }
 
 void MemoryPressureHandler::windowsMeasurementTimerFired()
 {
     setMemoryPressureStatus(SystemMemoryPressureStatus::Normal);
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET)
+    return;
+#else
     BOOL memoryLow;
 
     if (QueryMemoryResourceNotification(m_lowMemoryHandle.get(), &memoryLow) && memoryLow) {
@@ -64,6 +72,7 @@ void MemoryPressureHandler::windowsMeasurementTimerFired()
         releaseMemory(Critical::Yes);
     }
 #endif
+#endif
 }
 
 void MemoryPressureHandler::platformReleaseMemory(Critical)
@@ -73,7 +82,9 @@ void MemoryPressureHandler::platformReleaseMemory(Critical)
 void MemoryPressureHandler::install()
 {
     m_installed = true;
+#if !defined(WEBKIT_WINDOWS_LEGACY_TARGET)
     m_windowsMeasurementTimer.startRepeating(60_s);
+#endif
 }
 
 void MemoryPressureHandler::uninstall()

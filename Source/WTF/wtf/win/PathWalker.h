@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include <Windows.h>
+#include <windows.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 

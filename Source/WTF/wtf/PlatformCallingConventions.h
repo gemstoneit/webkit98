@@ -33,10 +33,12 @@
 
 /* Macros for specifing specific calling conventions. */
 
-#if OS(WINDOWS)
+#if OS(WINDOWS) && CPU(X86_64)
 #define SYSV_ABI __attribute__((sysv_abi))
+#define WTF_SYSV_ABI_IS_DISTINCT 1
 #else
 #define SYSV_ABI
+#define WTF_SYSV_ABI_IS_DISTINCT 0
 #endif
 
 #if CPU(X86)

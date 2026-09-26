@@ -89,10 +89,20 @@ bool FileHandle::truncate(int64_t offset)
     if (!m_handle)
         return false;
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && WEBKIT_WINDOWS_LEGACY_TARGET
+    LARGE_INTEGER largeOffset;
+    largeOffset.QuadPart = offset;
+    largeOffset.LowPart = SetFilePointer(*m_handle, largeOffset.LowPart, &largeOffset.HighPart, FILE_BEGIN);
+    if (largeOffset.LowPart == INVALID_SET_FILE_POINTER && GetLastError() != NO_ERROR)
+        return false;
+
+    return SetEndOfFile(*m_handle);
+#else
     FILE_END_OF_FILE_INFO eofInfo;
     eofInfo.EndOfFile.QuadPart = offset;
 
     return SetFileInformationByHandle(*m_handle, FileEndOfFileInfo, &eofInfo, sizeof(FILE_END_OF_FILE_INFO));
+#endif
 }
 
 std::optional<uint64_t> FileHandle::seek(int64_t offset, FileSeekOrigin origin)

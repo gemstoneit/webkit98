@@ -40,16 +40,33 @@
 #include <wtf/WorkQueue.h>
 #include <wtf/threads/BinarySemaphore.h>
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+
 namespace WTF {
 
 void initializeMainThread()
 {
+    WIN98_TRACE("WTF::initializeMainThread: enter");
     static std::once_flag initializeKey;
+    WIN98_TRACE("WTF::initializeMainThread: before call_once");
     std::call_once(initializeKey, [] {
+        WIN98_TRACE("WTF::initializeMainThread: call_once body begin");
+        WIN98_TRACE("WTF::initializeMainThread: initialize begin");
         initialize();
+        WIN98_TRACE("WTF::initializeMainThread: initialize end");
+        WIN98_TRACE("WTF::initializeMainThread: platform begin");
         initializeMainThreadPlatform();
+        WIN98_TRACE("WTF::initializeMainThread: platform end");
+        WIN98_TRACE("WTF::initializeMainThread: runloop initialize begin");
         RunLoop::initializeMain();
+        WIN98_TRACE("WTF::initializeMainThread: runloop initialize end");
     });
+    WIN98_TRACE("WTF::initializeMainThread: after call_once");
 }
 
 #if !USE(WEB_THREAD)

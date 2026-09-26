@@ -29,15 +29,21 @@
 #include <algorithm>
 #include <type_traits>
 #include <windows.h>
-#include <psapi.h>
 #include <wtf/MallocSpan.h>
 #include <wtf/MathExtras.h>
 #include <wtf/win/Win32Handle.h>
+
+#if !defined(WEBKIT_WINDOWS_LEGACY_TARGET)
+#include <psapi.h>
+#endif
 
 namespace WTF {
 
 size_t memoryFootprint()
 {
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET)
+    return 0;
+#else
     // We would like to calculate size of private working set.
     // https://msdn.microsoft.com/en-us/library/windows/desktop/ms684891(v=vs.85).aspx
     // > The working set of a program is a collection of those pages in its virtual address
@@ -87,6 +93,7 @@ size_t memoryFootprint()
             return 0;
         numberOfEntries = updateNumberOfEntries(workingSetsSpan[0].NumberOfEntries);
     }
+#endif
 }
 
 }

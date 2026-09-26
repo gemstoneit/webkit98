@@ -812,9 +812,13 @@ FastMallocStatistics fastMallocStatistics()
     statistics.reservedVMBytes = 0;
 
 #if OS(WINDOWS)
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET)
+    statistics.committedVMBytes = 0;
+#else
     PROCESS_MEMORY_COUNTERS resourceUsage;
     GetProcessMemoryInfo(GetCurrentProcess(), &resourceUsage, sizeof(resourceUsage));
     statistics.committedVMBytes = resourceUsage.PeakWorkingSetSize;
+#endif
 #elif OS(HAIKU)
     ssize_t cookie = nullptr;
     statistics.committedVMBytes = 0;

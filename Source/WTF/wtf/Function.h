@@ -26,6 +26,7 @@
 #pragma once
 
 #include <memory>
+#include <stdint.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/Forward.h>
 #include <wtf/SwiftBridging.h>
@@ -104,6 +105,15 @@ public:
     }
 
     explicit operator bool() const { return !!m_callableWrapper; }
+
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    uintptr_t win98MiniCallableVTableForDiagnostics() const
+    {
+        if (!m_callableWrapper)
+            return 0;
+        return static_cast<uintptr_t>(*reinterpret_cast<const uintptr_t*>(m_callableWrapper.get()));
+    }
+#endif
 
     template<typename CallableType>
         requires (!(std::is_pointer_v<CallableType> && std::is_function_v<typename std::remove_pointer_t<CallableType>>) && std::is_rvalue_reference_v<CallableType&&>)

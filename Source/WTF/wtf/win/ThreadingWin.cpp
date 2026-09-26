@@ -87,6 +87,7 @@
 #include <wtf/Threading.h>
 
 #include <errno.h>
+#include <new>
 #include <process.h>
 #include <windows.h>
 #include <wtf/HashMap.h>
@@ -95,6 +96,13 @@
 #include <wtf/MathExtras.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/ThreadingPrimitives.h>
+
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
 
 namespace WTF {
 
@@ -124,6 +132,9 @@ typedef struct tagTHREADNAME_INFO {
 
 void Thread::initializeCurrentThreadInternal(const char* szThreadName)
 {
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && WEBKIT_WINDOWS_LEGACY_TARGET
+    UNUSED_PARAM(szThreadName);
+#else
     THREADNAME_INFO info;
     info.dwType = 0x1000;
     info.szName = Thread::normalizeThreadName(szThreadName);
@@ -133,6 +144,7 @@ void Thread::initializeCurrentThreadInternal(const char* szThreadName)
     __try {
         RaiseException(MS_VC_EXCEPTION, 0, sizeof(info) / sizeof(ULONG_PTR), reinterpret_cast<ULONG_PTR*>(&info));
     } __except(EXCEPTION_CONTINUE_EXECUTION) { }
+#endif
 
     initializeCurrentThreadEvenIfNonWTFCreated();
 }
@@ -229,18 +241,35 @@ size_t Thread::getRegisters(const ThreadSuspendLocker&, PlatformRegisters& regis
 
 Thread& Thread::initializeCurrentTLS()
 {
+    WIN98_TRACE("Thread::initializeCurrentTLS: enter");
     // Not a WTF-created thread, ThreadIdentifier is not established yet.
+    WIN98_TRACE("Thread::initializeCurrentTLS: WTF initialize begin");
     WTF::initialize();
-    Ref thread = adoptRef(*new Thread(SchedulingPolicy::Other));
+    WIN98_TRACE("Thread::initializeCurrentTLS: WTF initialize end");
+    WIN98_TRACE("Thread::initializeCurrentTLS: operator new begin");
+    void* threadStorage = ::operator new(sizeof(Thread));
+    WIN98_TRACE("Thread::initializeCurrentTLS: operator new end");
+    WIN98_TRACE("Thread::initializeCurrentTLS: placement Thread begin");
+    Ref thread = adoptRef(*new (threadStorage) Thread(SchedulingPolicy::Other));
+    WIN98_TRACE("Thread::initializeCurrentTLS: placement Thread end");
 
     HANDLE handle;
+    WIN98_TRACE("Thread::initializeCurrentTLS: DuplicateHandle begin");
     bool isSuccessful = DuplicateHandle(GetCurrentProcess(), GetCurrentThread(), GetCurrentProcess(), &handle, 0, FALSE, DUPLICATE_SAME_ACCESS);
+    WIN98_TRACE("Thread::initializeCurrentTLS: DuplicateHandle end");
     RELEASE_ASSERT(isSuccessful);
 
+    WIN98_TRACE("Thread::initializeCurrentTLS: establish handle begin");
     thread->establishPlatformSpecificHandle(handle, currentID());
+    WIN98_TRACE("Thread::initializeCurrentTLS: establish handle end");
+    WIN98_TRACE("Thread::initializeCurrentTLS: initializeInThread begin");
     thread->initializeInThread();
+    WIN98_TRACE("Thread::initializeCurrentTLS: initializeInThread end");
+    WIN98_TRACE("Thread::initializeCurrentTLS: initializeCurrentThreadEven begin");
     initializeCurrentThreadEvenIfNonWTFCreated();
+    WIN98_TRACE("Thread::initializeCurrentTLS: initializeCurrentThreadEven end");
 
+    WIN98_TRACE("Thread::initializeCurrentTLS: initializeTLS begin");
     return initializeTLS(WTF::move(thread));
 }
 
@@ -279,12 +308,21 @@ thread_local static Thread::ThreadHolder s_threadHolder;
 
 Thread* Thread::currentMayBeNull()
 {
-    return s_threadHolder.thread.get();
+    static unsigned traceCount;
+    bool shouldTrace = traceCount++ < 24;
+    if (shouldTrace)
+        WIN98_TRACE("Thread::currentMayBeNull: enter");
+    auto* thread = s_threadHolder.thread.get();
+    if (shouldTrace)
+        WIN98_TRACE("Thread::currentMayBeNull: after thread_local access");
+    return thread;
 }
 
 Thread& Thread::initializeTLS(Ref<Thread>&& thread)
 {
+    WIN98_TRACE("Thread::initializeTLS: enter");
     s_threadHolder.thread = WTF::move(thread);
+    WIN98_TRACE("Thread::initializeTLS: after thread_local set");
     return *s_threadHolder.thread;
 }
 
@@ -325,21 +363,48 @@ void Thread::SpecificStorage::destroySlots()
     }
 }
 
-Mutex::~Mutex() = default;
+Mutex::~Mutex()
+{
+#if WTF_USE_PTHREADS_ON_WINDOWS_LEGACY
+    int result = pthread_mutex_destroy(&m_mutex);
+    ASSERT_UNUSED(result, !result);
+#endif
+}
 
 void Mutex::lock()
 {
+#if WTF_USE_PTHREADS_ON_WINDOWS_LEGACY
+    int result = pthread_mutex_lock(&m_mutex);
+    ASSERT_UNUSED(result, !result);
+#else
     AcquireSRWLockExclusive(&m_mutex);
+#endif
 }
 
 bool Mutex::tryLock()
 {
+#if WTF_USE_PTHREADS_ON_WINDOWS_LEGACY
+    int result = pthread_mutex_trylock(&m_mutex);
+    if (!result)
+        return true;
+    if (result == EBUSY)
+        return false;
+
+    ASSERT_NOT_REACHED();
+    return false;
+#else
     return TryAcquireSRWLockExclusive(&m_mutex);
+#endif
 }
 
 void Mutex::unlock()
 {
+#if WTF_USE_PTHREADS_ON_WINDOWS_LEGACY
+    int result = pthread_mutex_unlock(&m_mutex);
+    ASSERT_UNUSED(result, !result);
+#else
     ReleaseSRWLockExclusive(&m_mutex);
+#endif
 }
 
 // Returns an interval in milliseconds suitable for passing to one of the Win32 wait functions (e.g., ::WaitForSingleObject).
@@ -364,15 +429,47 @@ static DWORD absoluteTimeToWaitTimeoutInterval(WallTime absoluteTime)
     return static_cast<DWORD>((absoluteTime - currentTime).milliseconds());
 }
 
-ThreadCondition::~ThreadCondition() = default;
+ThreadCondition::~ThreadCondition()
+{
+#if WTF_USE_PTHREADS_ON_WINDOWS_LEGACY
+    pthread_cond_destroy(&m_condition);
+#endif
+}
 
 void ThreadCondition::wait(Mutex& mutex)
 {
+#if WTF_USE_PTHREADS_ON_WINDOWS_LEGACY
+    int result = pthread_cond_wait(&m_condition, &mutex.impl());
+    ASSERT_UNUSED(result, !result);
+#else
     SleepConditionVariableSRW(&m_condition, &mutex.impl(), INFINITE, 0);
+#endif
 }
 
 bool ThreadCondition::timedWait(Mutex& mutex, WallTime absoluteTime)
 {
+#if WTF_USE_PTHREADS_ON_WINDOWS_LEGACY
+    if (absoluteTime.isInfinity()) {
+        if (absoluteTime == -WallTime::infinity())
+            return false;
+        wait(mutex);
+        return true;
+    }
+
+    if (absoluteTime < WallTime::now())
+        return false;
+
+    double rawSeconds = absoluteTime.secondsSinceEpoch().value();
+
+    time_t timeSeconds = static_cast<time_t>(rawSeconds);
+    long timeNanoseconds = static_cast<long>((rawSeconds - timeSeconds) * 1E9);
+
+    timespec targetTime;
+    targetTime.tv_sec = timeSeconds;
+    targetTime.tv_nsec = timeNanoseconds;
+
+    return pthread_cond_timedwait(&m_condition, &mutex.impl(), &targetTime) == 0;
+#else
     // https://msdn.microsoft.com/en-us/library/windows/desktop/ms686304(v=vs.85).aspx
     DWORD interval = absoluteTimeToWaitTimeoutInterval(absoluteTime);
     if (!interval) {
@@ -385,16 +482,27 @@ bool ThreadCondition::timedWait(Mutex& mutex, WallTime absoluteTime)
         return true;
     ASSERT(GetLastError() == ERROR_TIMEOUT);
     return false;
+#endif
 }
 
 void ThreadCondition::signal()
 {
+#if WTF_USE_PTHREADS_ON_WINDOWS_LEGACY
+    int result = pthread_cond_signal(&m_condition);
+    ASSERT_UNUSED(result, !result);
+#else
     WakeConditionVariable(&m_condition);
+#endif
 }
 
 void ThreadCondition::broadcast()
 {
+#if WTF_USE_PTHREADS_ON_WINDOWS_LEGACY
+    int result = pthread_cond_broadcast(&m_condition);
+    ASSERT_UNUSED(result, !result);
+#else
     WakeAllConditionVariable(&m_condition);
+#endif
 }
 
 void Thread::yield()

@@ -201,9 +201,13 @@ static int32_t calculateUTCOffset()
     TIME_ZONE_INFORMATION timeZoneInformation;
     DWORD rc = 0;
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && WEBKIT_WINDOWS_LEGACY_TARGET
+    rc = ::GetTimeZoneInformation(&timeZoneInformation);
+#else
     SYSTEMTIME systemTime;
     ::GetSystemTime(&systemTime);
     rc = ::GetTimeZoneInformationForYear(systemTime.wYear, nullptr, &timeZoneInformation);
+#endif
     if (rc == TIME_ZONE_ID_INVALID)
         return 0;
 

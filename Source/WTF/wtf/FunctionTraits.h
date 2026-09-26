@@ -80,7 +80,7 @@ struct FunctionTraits<Result(Args...)> {
 
 };
 
-#if OS(WINDOWS)
+#if WTF_SYSV_ABI_IS_DISTINCT
 template<typename Result, typename... Args>
 struct FunctionTraits<Result SYSV_ABI(Args...)> : public FunctionTraits<Result(Args...)> {
 };
@@ -90,7 +90,7 @@ template<typename Result, typename... Args>
 struct FunctionTraits<Result(*)(Args...)> : public FunctionTraits<Result(Args...)> {
 };
 
-#if OS(WINDOWS)
+#if WTF_SYSV_ABI_IS_DISTINCT
 template<typename Result, typename... Args>
 struct FunctionTraits<Result SYSV_ABI (*)(Args...)> : public FunctionTraits<Result(Args...)> {
 };

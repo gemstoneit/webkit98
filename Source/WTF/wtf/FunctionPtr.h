@@ -88,7 +88,7 @@ public:
         : m_ptr(encode(ptr))
     { }
 
-#if OS(WINDOWS)
+#if WTF_SYSV_ABI_IS_DISTINCT
     constexpr FunctionPtr(Out(SYSV_ABI *ptr)(In...))
         : m_ptr(encode(ptr))
     { }

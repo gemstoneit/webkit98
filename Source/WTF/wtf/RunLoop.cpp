@@ -26,11 +26,19 @@
 #include "config.h"
 #include <wtf/RunLoop.h>
 
+#include <new>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Ref.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/threads/BinarySemaphore.h>
+
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
 
 namespace WTF {
 
@@ -44,8 +52,9 @@ class RunLoop::Holder {
     WTF_DEPRECATED_MAKE_FAST_ALLOCATED(RunLoop);
 public:
     Holder()
-        : m_runLoop(adoptRef(*new RunLoop))
+        : m_runLoop(createRunLoop())
     {
+        WIN98_TRACE("RunLoop::Holder: ctor body");
     }
 
     ~Holder()
@@ -56,24 +65,54 @@ public:
     RunLoop& runLoop() { return m_runLoop; }
 
 private:
+    static Ref<RunLoop> createRunLoop()
+    {
+        WIN98_TRACE("RunLoop::Holder: createRunLoop begin");
+        WIN98_TRACE("RunLoop::Holder: operator new begin");
+        void* runLoopStorage = ::operator new(sizeof(RunLoop));
+        WIN98_TRACE("RunLoop::Holder: operator new end");
+        WIN98_TRACE("RunLoop::Holder: placement RunLoop begin");
+        auto* runLoop = new (runLoopStorage) RunLoop;
+        WIN98_TRACE("RunLoop::Holder: placement RunLoop end");
+        return adoptRef(*runLoop);
+    }
+
     const Ref<RunLoop> m_runLoop;
 };
 
 void RunLoop::initializeMain()
 {
+    WIN98_TRACE("RunLoop::initializeMain: enter");
     RELEASE_ASSERT(!s_mainRunLoop);
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    WIN98_TRACE("RunLoop::initializeMain: legacy main holder begin");
+    static NeverDestroyed<Holder> mainRunLoopHolder;
+    WIN98_TRACE("RunLoop::initializeMain: legacy main holder end");
+    s_mainRunLoop = &mainRunLoopHolder.get().runLoop();
+    WIN98_TRACE("RunLoop::initializeMain: legacy main runloop set");
+#else
+    WIN98_TRACE("RunLoop::initializeMain: before currentSingleton");
     s_mainRunLoop = &RunLoop::currentSingleton();
+    WIN98_TRACE("RunLoop::initializeMain: after currentSingleton");
+#endif
 }
 
 auto RunLoop::runLoopHolder() -> ThreadSpecific<Holder>&
 {
+    WIN98_TRACE("RunLoop::runLoopHolder: enter");
     static NeverDestroyed<ThreadSpecific<Holder>> runLoopHolder;
+    WIN98_TRACE("RunLoop::runLoopHolder: after static");
     return runLoopHolder;
 }
 
 RunLoop& RunLoop::currentSingleton()
 {
-    return runLoopHolder()->runLoop();
+    WIN98_TRACE("RunLoop::currentSingleton: enter");
+    auto& holder = runLoopHolder();
+    WIN98_TRACE("RunLoop::currentSingleton: after runLoopHolder");
+    auto* holderValue = holder.operator->();
+    WIN98_TRACE("RunLoop::currentSingleton: after holder operator");
+    return holderValue->runLoop();
 }
 
 RunLoop& RunLoop::mainSingleton()
@@ -117,6 +156,10 @@ Ref<RunLoop> RunLoop::create(ASCIILiteral threadName, ThreadType threadType, Thr
 
 bool RunLoop::isCurrent() const
 {
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    if (s_mainRunLoop && this == s_mainRunLoop && isMainThread())
+        return true;
+#endif
     // Avoid constructing the RunLoop for the current thread if it has not been created yet.
     return runLoopHolder().isSet() && this == &RunLoop::currentSingleton();
 }

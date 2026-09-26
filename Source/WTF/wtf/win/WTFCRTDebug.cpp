@@ -26,18 +26,22 @@
 #include "config.h"
 #include <wtf/win/WTFCRTDebug.h>
 
+#if !defined(__MINGW32__)
 #include <crtdbg.h>
+#endif
 
 namespace WTF {
 
 void disableCRTDebugAssertDialog()
 {
+#if !defined(__MINGW32__)
     _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
     _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
     _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+#endif
 }
 
 }

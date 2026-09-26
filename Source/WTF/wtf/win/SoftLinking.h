@@ -37,6 +37,13 @@
     }
 
 #define SOFT_LINK_GETPROCADDRESS GetProcAddress
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET)
+#define WTF_SOFT_LINK_ENCODE_POINTER(pointer) (pointer)
+#define WTF_SOFT_LINK_DECODE_POINTER(pointer) (pointer)
+#else
+#define WTF_SOFT_LINK_ENCODE_POINTER(pointer) ::EncodePointer(pointer)
+#define WTF_SOFT_LINK_DECODE_POINTER(pointer) ::DecodePointer(pointer)
+#endif
 #define SOFT_LINK_LIBRARY(lib) SOFT_LINK_LIBRARY_HELPER(lib, L".dll")
 #define SOFT_LINK_DEBUG_LIBRARY(lib) SOFT_LINK_LIBRARY_HELPER(lib, L"_debug.dll")
 
@@ -48,8 +55,8 @@
     inline resultType functionName parameterDeclarations \
     { \
         if (!softLink##functionName) \
-            softLink##functionName = ::EncodePointer(reinterpret_cast<void*>(SOFT_LINK_GETPROCADDRESS(library##Library(), #functionName))); \
-        return reinterpret_cast<resultType (callingConvention*) parameterDeclarations>(::DecodePointer(softLink##functionName)) parameterNames; \
+            softLink##functionName = WTF_SOFT_LINK_ENCODE_POINTER(reinterpret_cast<void*>(SOFT_LINK_GETPROCADDRESS(library##Library(), #functionName))); \
+        return reinterpret_cast<resultType (callingConvention*) parameterDeclarations>(WTF_SOFT_LINK_DECODE_POINTER(softLink##functionName)) parameterNames; \
     }
 
 #define SOFT_LINK_OPTIONAL(library, functionName, resultType, callingConvention, parameterDeclarations) \
@@ -60,10 +67,10 @@
         static bool initialized; \
         \
         if (!initialized) { \
-            ptr = ::EncodePointer(reinterpret_cast<void*>(SOFT_LINK_GETPROCADDRESS(library##Library(), #functionName))); \
+            ptr = WTF_SOFT_LINK_ENCODE_POINTER(reinterpret_cast<void*>(SOFT_LINK_GETPROCADDRESS(library##Library(), #functionName))); \
             initialized = true; \
         } \
-        return reinterpret_cast<functionName##PtrType>(::DecodePointer(ptr)); \
+        return reinterpret_cast<functionName##PtrType>(WTF_SOFT_LINK_DECODE_POINTER(ptr)); \
     } \
 
 #define SOFT_LINK_LOADED_LIBRARY(library, functionName, resultType, callingConvention, parameterDeclarations) \
@@ -75,11 +82,11 @@
         \
         if (!initialized) { \
             static HINSTANCE libraryInstance = ::GetModuleHandle(L#library); \
-            ptr = ::EncodePointer(reinterpret_cast<void*>(SOFT_LINK_GETPROCADDRESS(libraryInstance, #functionName))); \
+            ptr = WTF_SOFT_LINK_ENCODE_POINTER(reinterpret_cast<void*>(SOFT_LINK_GETPROCADDRESS(libraryInstance, #functionName))); \
             initialized = true; \
         } \
         \
-        return reinterpret_cast<functionName##PtrType>(::DecodePointer(ptr)); \
+        return reinterpret_cast<functionName##PtrType>(WTF_SOFT_LINK_DECODE_POINTER(ptr)); \
     } \
 
 /*
@@ -95,8 +102,8 @@
     inline resultType softLink_##functionName parameterDeclarations \
     { \
         if (!softLink##functionName) \
-            softLink##functionName = ::EncodePointer(reinterpret_cast<void*>(SOFT_LINK_GETPROCADDRESS(library##Library(), #functionName))); \
-        return reinterpret_cast<resultType(callingConvention*)parameterDeclarations>(::DecodePointer(softLink##functionName)) parameterNames; \
+            softLink##functionName = WTF_SOFT_LINK_ENCODE_POINTER(reinterpret_cast<void*>(SOFT_LINK_GETPROCADDRESS(library##Library(), #functionName))); \
+        return reinterpret_cast<resultType(callingConvention*)parameterDeclarations>(WTF_SOFT_LINK_DECODE_POINTER(softLink##functionName)) parameterNames; \
     }
 
 #define SOFT_LINK_DLL_IMPORT_OPTIONAL(library, functionName, resultType, callingConvention, parameterDeclarations) \
@@ -107,10 +114,10 @@
         static bool initialized; \
         \
         if (!initialized) { \
-            ptr = ::EncodePointer(reinterpret_cast<void*>(SOFT_LINK_GETPROCADDRESS(library##Library(), #functionName))); \
+            ptr = WTF_SOFT_LINK_ENCODE_POINTER(reinterpret_cast<void*>(SOFT_LINK_GETPROCADDRESS(library##Library(), #functionName))); \
             initialized = true; \
         } \
-        return reinterpret_cast<functionName##PtrType>(::DecodePointer(ptr)); \
+        return reinterpret_cast<functionName##PtrType>(WTF_SOFT_LINK_DECODE_POINTER(ptr)); \
     } \
 
 #define SOFT_LINK_DLL_IMPORT_OPTIONAL(library, functionName, resultType, callingConvention, parameterDeclarations) \
@@ -121,10 +128,10 @@
         static bool initialized; \
         \
         if (!initialized) { \
-            ptr = ::EncodePointer(reinterpret_cast<void*>(SOFT_LINK_GETPROCADDRESS(library##Library(), #functionName))); \
+            ptr = WTF_SOFT_LINK_ENCODE_POINTER(reinterpret_cast<void*>(SOFT_LINK_GETPROCADDRESS(library##Library(), #functionName))); \
             initialized = true; \
         } \
-        return reinterpret_cast<functionName##PtrType>(::DecodePointer(ptr)); \
+        return reinterpret_cast<functionName##PtrType>(WTF_SOFT_LINK_DECODE_POINTER(ptr)); \
     } \
 
 /*
