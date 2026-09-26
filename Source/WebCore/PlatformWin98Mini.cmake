@@ -7,6 +7,12 @@ list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
     "SourcesWin98Mini.txt"
 )
 
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # Collect compiler temporaries more often for this large standalone binding.
+    set_source_files_properties("${WebCore_DERIVED_SOURCES_DIR}/JSDOMWindow.cpp"
+        PROPERTIES COMPILE_OPTIONS "--param=ggc-min-expand=10;--param=ggc-min-heapsize=32768")
+endif ()
+
 list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/network/win98mini"
     "${WEBCORE_DIR}/platform/text/icu"
