@@ -1,0 +1,23 @@
+// Win98Mini initially relies on WebCore/Sources.txt plus Cairo/FreeType/ImageDecoder
+// platform lists. Add Win98Mini-specific source files here as the renderer shell grows.
+accessibility/win98mini/AXObjectCacheWin98Mini.cpp
+accessibility/win98mini/AccessibilityObjectWin98Mini.cpp
+platform/generic/KeyedDecoderGeneric.cpp
+platform/generic/KeyedEncoderGeneric.cpp
+platform/text/Hyphenation.cpp
+platform/win98mini/EditorWin98Mini.cpp
+platform/win98mini/LocaleWin98Mini.cpp
+platform/win98mini/MIMETypeRegistryWin98Mini.cpp
+platform/win98mini/NetworkStateNotifierWin98Mini.cpp
+platform/win98mini/NetworkStorageSessionWin98Mini.cpp
+platform/win98mini/PasteboardWin98Mini.cpp
+platform/win98mini/PlatformScreenWin98Mini.cpp
+platform/win98mini/PublicSuffixStoreWin98Mini.cpp
+platform/win98mini/ScrollbarThemeWin98Mini.cpp
+platform/win98mini/SharedMemoryWin98Mini.cpp
+platform/win98mini/SynchronousLoaderClientWin98Mini.cpp
+platform/win98mini/Win98MiniEditorClient.cpp
+platform/graphics/win98mini/SystemFontDatabaseWin98Mini.cpp
+platform/graphics/win98mini/GraphicsLayerWin98Mini.cpp
+platform/win98mini/ThemeWin98Mini.cpp
+rendering/win98mini/RenderThemeWin98Mini.cpp

@@ -37,6 +37,7 @@
 #include "Sizes.h"
 #include <algorithm>
 #include <cstddef>
+#include <cstring>
 
 #if BOS(WINDOWS)
 #include <windows.h>
@@ -166,6 +167,13 @@ inline void* tryVMAllocate(size_t vmAlignment, size_t vmSize, VMTag usage = VMTa
     char* alignedEnd = aligned + vmSize;
     
     RELEASE_BASSERT(alignedEnd <= mappedEnd);
+
+#if BOS(WINDOWS) && defined(WEBKIT_WINDOWS_LEGACY_TARGET) && WEBKIT_WINDOWS_LEGACY_TARGET
+    // Win9x does not support the NT-style partial VirtualFree trimming that
+    // bmalloc uses after overallocating for alignment. Keep the full committed
+    // reservation alive and return the aligned subrange.
+    return aligned;
+#endif
     
     if (size_t leftExtra = aligned - mapped)
         vmDeallocate(mapped, leftExtra);
@@ -364,13 +372,21 @@ inline void* tryVMAllocate(size_t vmSize, VMTag usage)
     BUNUSED_PARAM(usage);
     const bool writable = true;
     const bool executable = true;
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && WEBKIT_WINDOWS_LEGACY_TARGET
+    return VirtualAlloc(nullptr, vmSize, MEM_RESERVE | MEM_COMMIT, protection(writable, executable));
+#else
     return VirtualAlloc(nullptr, vmSize, MEM_RESERVE, protection(writable, executable));
+#endif
 }
 
 inline void vmDeallocate(void* p, size_t vmSize)
 {
     vmValidate(p, vmSize);
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && WEBKIT_WINDOWS_LEGACY_TARGET
+    VirtualFree(p, 0, MEM_RELEASE);
+#else
     VirtualFree(p, vmSize, MEM_RELEASE);
+#endif
 }
 
 inline void vmRevokePermissions(void* p, size_t vmSize)
@@ -388,24 +404,37 @@ inline void vmZeroAndPurge(void* p, size_t vmSize, VMTag usage)
     BUNUSED_PARAM(usage);
 
     vmValidate(p, vmSize);
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && WEBKIT_WINDOWS_LEGACY_TARGET
+    memset(p, 0, vmSize);
+#else
     DWORD result = DiscardVirtualMemory(p, vmSize);
     RELEASE_BASSERT(result == ERROR_SUCCESS);
+#endif
 }
 
 inline void vmDeallocatePhysicalPages(void* p, size_t vmSize)
 {
     vmValidatePhysical(p, vmSize);
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && WEBKIT_WINDOWS_LEGACY_TARGET
+    memset(p, 0, vmSize);
+#else
     bool writable = true;
     bool executable = true;
     VirtualAlloc(p, vmSize, MEM_RESET, protection(writable, executable));
+#endif
 }
 
 inline void vmAllocatePhysicalPages(void* p, size_t vmSize)
 {
     vmValidatePhysical(p, vmSize);
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && WEBKIT_WINDOWS_LEGACY_TARGET
+    BUNUSED_PARAM(p);
+    BUNUSED_PARAM(vmSize);
+#else
     bool writable = true;
     bool executable = true;
     VirtualAlloc(p, vmSize, MEM_COMMIT, protection(writable, executable));
+#endif
 }
 #endif
 

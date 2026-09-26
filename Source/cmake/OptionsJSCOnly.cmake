@@ -63,7 +63,11 @@ if (NOT ENABLE_STATIC_JSC)
 endif ()
 
 if (WIN32)
-    add_definitions(-D_WINDOWS -DNTDDI_VERSION=0x0A000006 -D_WIN32_WINNT=0x0A00)
+    if (WEBKIT_WINDOWS_LEGACY_TARGET)
+        add_definitions(-D_WINDOWS -DWINVER=0x0410 -D_WIN32_WINDOWS=0x0410)
+    else ()
+        add_definitions(-D_WINDOWS -DNTDDI_VERSION=0x0A000006 -D_WIN32_WINNT=0x0A00)
+    endif ()
 
     add_definitions(-DNOMINMAX)
     add_definitions(-DUNICODE -D_UNICODE)

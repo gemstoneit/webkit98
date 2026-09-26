@@ -161,6 +161,11 @@ function(GLib_HandleComponent name)
         return()
     endif ()
 
+    if (name STREQUAL "GLib")
+        set(GLib_GLib_FOUND FALSE PARENT_SCOPE)
+        return()
+    endif ()
+
     set(module "${GLib_${name}__module}")
     set(library "${GLib_${name}__library}")
     set(dependencies "${GLib_${name}__dependencies}")

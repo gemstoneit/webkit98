@@ -698,6 +698,7 @@ if (WIN32)
         win/GDIObject.h
         win/PathWalker.h
         win/SoftLinking.h
+        win/WTFCRTDebug.h
         win/Win32Handle.h
     )
 elseif (APPLE)

@@ -469,6 +469,10 @@ add_custom_command(
 # single source file, so we need to create a separate target for it.
 add_library(LowLevelInterpreterLib OBJECT llint/LowLevelInterpreter.cpp
     ${JavaScriptCore_DERIVED_SOURCES_DIR}/${LLIntOutput})
+target_compile_definitions(LowLevelInterpreterLib PRIVATE
+    STATICALLY_LINKED_WITH_WTF
+    STATICALLY_LINKED_WITH_bmalloc
+)
 
 # WebAssembly generator
 

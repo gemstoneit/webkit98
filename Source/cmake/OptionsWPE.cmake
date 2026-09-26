@@ -7,7 +7,11 @@ set(USER_AGENT_BRANDING "" CACHE STRING "Branding to add to user agent string")
 
 # Update Source/WTF/wtf/Platform.h to match required GLib versions.
 find_package(GLib 2.70.0 REQUIRED COMPONENTS GioUnix Thread Module)
-find_package(HarfBuzz 2.7.4 REQUIRED COMPONENTS ICU)
+if (WEBKIT_WINDOWS_LEGACY_TARGET)
+    find_package(HarfBuzz 2.7.4 REQUIRED)
+else ()
+    find_package(HarfBuzz 2.7.4 REQUIRED COMPONENTS ICU)
+endif ()
 find_package(ICU 70.1 REQUIRED COMPONENTS data i18n uc)
 find_package(JPEG REQUIRED)
 find_package(Epoxy 1.5.4 REQUIRED)
