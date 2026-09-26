@@ -15,7 +15,9 @@ macro(WEBKIT_COMPUTE_SOURCES _framework)
     set(gusb_args --derived-sources-path ${_derivedSourcesPath} --source-tree-path ${CMAKE_CURRENT_SOURCE_DIR})
     if (PORT STREQUAL "Win98Mini" AND ${_framework} STREQUAL "WebCore")
         # Eight generated DOM bindings can exceed the shared build host's 3 GiB cap.
-        list(APPEND gusb_args --max-bundle-size 4 --no-unify-filter JSDOMWindow.cpp)
+        list(APPEND gusb_args --max-bundle-size 4
+            --no-unify-filter JSDOMWindow.cpp
+            --no-unify-filter dom/Document.cpp)
     elseif (MSVC AND ${_framework} STREQUAL "WebCore" AND ${_framework}_LIBRARY_TYPE STREQUAL "STATIC")
         # Windows needs a larger bundle size because that helps keep WebCore.lib's size below the 4GB maximum in debug builds.
         list(APPEND gusb_args --max-bundle-size 16)

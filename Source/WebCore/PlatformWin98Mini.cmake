@@ -8,8 +8,10 @@ list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
 )
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    # Collect compiler temporaries more often for this large standalone binding.
-    set_source_files_properties("${WebCore_DERIVED_SOURCES_DIR}/JSDOMWindow.cpp"
+    # Collect compiler temporaries more often for large standalone sources.
+    set_source_files_properties(
+        "${WebCore_DERIVED_SOURCES_DIR}/JSDOMWindow.cpp"
+        "${WEBCORE_DIR}/dom/Document.cpp"
         PROPERTIES COMPILE_OPTIONS "--param=ggc-min-expand=10;--param=ggc-min-heapsize=32768")
 endif ()
 
