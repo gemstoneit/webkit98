@@ -60,12 +60,28 @@ void PlatformKeyboardEvent::setCurrentModifierState(OptionSet<Modifier> modifier
     s_currentModifiers = modifiers;
 }
 
-#if PLATFORM(GTK) || USE(LIBWPE) || ENABLE(WPE_PLATFORM)
+#if PLATFORM(GTK) || USE(LIBWPE) || ENABLE(WPE_PLATFORM) || defined(BUILDING_WIN98MINI__)
 OptionSet<PlatformEvent::Modifier> PlatformKeyboardEvent::currentStateOfModifierKeys()
 {
     if (s_currentModifiers)
         return *s_currentModifiers;
     return { };
+}
+#endif
+
+#if defined(BUILDING_WIN98MINI__)
+void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool backwardsCompatibility)
+{
+    ASSERT(m_type == PlatformEvent::Type::KeyDown);
+    m_type = type;
+    if (backwardsCompatibility)
+        return;
+
+    if (type == PlatformEvent::Type::RawKeyDown) {
+        m_text = String();
+        m_unmodifiedText = String();
+    } else
+        m_keyIdentifier = String();
 }
 #endif
 

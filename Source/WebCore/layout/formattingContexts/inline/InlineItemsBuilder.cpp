@@ -43,6 +43,7 @@
 namespace WebCore {
 namespace Layout {
 
+
 struct WhitespaceContent {
     size_t length { 0 };
     bool isWordSeparator { true };
@@ -319,8 +320,9 @@ void InlineItemsBuilder::collectInlineItems(InlineItemList& inlineItemList, Inli
             auto layoutBox = layoutQueue.takeLast();
             if (layoutBox->isOutOfFlowPositioned())
                 inlineItemList.append({ layoutBox, InlineItem::Type::Opaque });
-            else if (auto* inlineTextBox = dynamicDowncast<InlineTextBox>(layoutBox.get()))
+            else if (auto* inlineTextBox = dynamicDowncast<InlineTextBox>(layoutBox.get())) {
                 handleTextContent(*inlineTextBox, inlineItemList, partialContentOffset(*inlineTextBox));
+            }
             else if (layoutBox->isAtomicInlineBox() || layoutBox->isLineBreakBox())
                 handleInlineLevelBox(layoutBox, inlineItemList);
             else if (layoutBox->isInlineBox())

@@ -373,6 +373,10 @@ public:
     void prefetch(const URL&, const Vector<String>&, std::optional<ReferrerPolicy>, bool lowPriority = false);
     DocumentPrefetcher& documentPrefetcher() { return m_documentPrefetcher.get(); }
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniCheckTimerForDiagnostics() const { return &m_checkTimer; }
+#endif
+
 private:
     enum FormSubmissionCacheLoadPolicy {
         MayAttemptCacheOnlyLoadForFormSubmissionItem,

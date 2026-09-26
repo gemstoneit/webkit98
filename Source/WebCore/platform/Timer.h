@@ -183,6 +183,35 @@ public:
     {
     }
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    uintptr_t win98MiniFunctionCallableVTableForDiagnostics() const
+    {
+        return m_function.win98MiniCallableVTableForDiagnostics();
+    }
+
+    static uintptr_t win98MiniFunctionCallableVTableForDiagnostics(const TimerBase& timer)
+    {
+        if (win98MiniVTableForDiagnostics(timer) != win98MiniClassVTableForDiagnostics())
+            return 0;
+        return static_cast<const Timer&>(timer).win98MiniFunctionCallableVTableForDiagnostics();
+    }
+
+private:
+    static uintptr_t win98MiniClassVTableForDiagnostics()
+    {
+        static uintptr_t vtable = [] {
+            Timer sample([] { });
+            return win98MiniVTableForDiagnostics(sample);
+        }();
+        return vtable;
+    }
+
+    static uintptr_t win98MiniVTableForDiagnostics(const TimerBase& timer)
+    {
+        return static_cast<uintptr_t>(*reinterpret_cast<const uintptr_t*>(&timer));
+    }
+#endif
+
 private:
     void fired() override
     {
@@ -251,6 +280,39 @@ public:
     }
 
     using TimerBase::isActive;
+
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+    const TimerBase* win98MiniTimerBaseForDiagnostics() const { return static_cast<const TimerBase*>(this); }
+#endif
+
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    uintptr_t win98MiniFunctionCallableVTableForDiagnostics() const
+    {
+        return m_function.win98MiniCallableVTableForDiagnostics();
+    }
+
+    static uintptr_t win98MiniFunctionCallableVTableForDiagnostics(const TimerBase& timer)
+    {
+        if (win98MiniVTableForDiagnostics(timer) != win98MiniClassVTableForDiagnostics())
+            return 0;
+        return static_cast<const DeferrableOneShotTimer&>(timer).win98MiniFunctionCallableVTableForDiagnostics();
+    }
+
+private:
+    static uintptr_t win98MiniClassVTableForDiagnostics()
+    {
+        static uintptr_t vtable = [] {
+            DeferrableOneShotTimer sample([] { }, 0_s);
+            return win98MiniVTableForDiagnostics(sample);
+        }();
+        return vtable;
+    }
+
+    static uintptr_t win98MiniVTableForDiagnostics(const TimerBase& timer)
+    {
+        return static_cast<uintptr_t>(*reinterpret_cast<const uintptr_t*>(&timer));
+    }
+#endif
 
 private:
     void fired() override

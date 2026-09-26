@@ -32,6 +32,9 @@ FontSetCache::FontSet::FontSet(RefPtr<FcPattern>&& fontPattern)
 {
     FcResult result;
     fontSet.reset(FcFontSort(nullptr, pattern.get(), FcTrue, nullptr, &result));
+    if (!fontSet)
+        return;
+
     for (int i = 0; i < fontSet->nfont; ++i) {
         FcPattern* fontSetPattern = fontSet->fonts[i];
         FcCharSet* charSet;

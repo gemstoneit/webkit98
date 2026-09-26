@@ -27,7 +27,9 @@
 #include "config.h"
 #include "DNSResolveQueue.h"
 
-#if USE(GLIB)
+#if defined(BUILDING_WIN98MINI__)
+#include "DNSResolveQueueWin98Mini.h"
+#elif USE(GLIB)
 #include "DNSResolveQueueGLib.h"
 #elif USE(CURL)
 #include "DNSResolveQueueCurl.h"

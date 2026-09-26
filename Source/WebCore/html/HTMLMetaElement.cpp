@@ -28,6 +28,7 @@
 #include "CSSPropertyParserConsumer+Color.h"
 #include "Color.h"
 #include "Document.h"
+#include "DocumentQuirks.h"
 #include "ElementInlines.h"
 #include "HTMLHeadElement.h"
 #include "HTMLNames.h"

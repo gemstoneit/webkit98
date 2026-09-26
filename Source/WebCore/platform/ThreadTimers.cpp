@@ -152,6 +152,53 @@ void ThreadTimers::sharedTimerFiredInternal()
     updateSharedTimer();
 }
 
+#if defined(BUILDING_WIN98MINI__)
+bool ThreadTimers::win98MiniFireOneTimerForDiagnostics()
+{
+    ASSERT(isMainThread() || (!isWebThread() && !isUIThread()));
+    if (m_firingTimers)
+        return false;
+
+    while (!m_timerHeap.isEmpty() && !m_timerHeap.first()->hasTimer())
+        TimerBase::heapDeleteNullMin(m_timerHeap);
+
+    if (m_timerHeap.isEmpty())
+        return false;
+
+    Ref item = m_timerHeap.first();
+    if (!item->hasTimer()) {
+        TimerBase::heapDeleteNullMin(m_timerHeap);
+        updateSharedTimer();
+        return false;
+    }
+
+    auto fireTime = MonotonicTime::now();
+    if (item->time > fireTime) {
+        updateSharedTimer();
+        return false;
+    }
+
+    TraceScope threadTimersScope { ThreadTimersStart, ThreadTimersEnd };
+    m_firingTimers = true;
+    m_pendingSharedTimerFireTime = MonotonicTime { };
+
+    auto& timer = item->timer();
+    Seconds interval = timer.repeatInterval();
+    timer.setNextFireTime(interval ? fireTime + interval : MonotonicTime { });
+
+    {
+        TraceScope timerFiredScope { TimerFiredStart, TimerFiredEnd };
+        item->timer().fired();
+    }
+
+    m_firingTimers = false;
+    m_shouldBreakFireLoopForRenderingUpdate = false;
+
+    updateSharedTimer();
+    return true;
+}
+#endif
+
 void ThreadTimers::fireTimersInNestedEventLoop()
 {
     // Reset the reentrancy guard so the timers can fire again.
@@ -173,4 +220,3 @@ void ThreadTimers::breakFireLoopForRenderingUpdate()
 }
 
 } // namespace WebCore
-

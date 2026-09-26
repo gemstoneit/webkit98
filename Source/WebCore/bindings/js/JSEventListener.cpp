@@ -54,12 +54,20 @@ JSEventListener::JSEventListener(JSObject* function, JSObject* wrapper, bool isA
     , m_isAttribute(isAttribute)
     , m_wasCreatedFromMarkup(createdFromMarkup == CreatedFromMarkup::Yes)
     , m_isInitialized(false)
+#if defined(BUILDING_WIN98MINI__)
+    , m_wrapper(isolatedWorld.vm(), wrapper)
+#else
     , m_wrapper(wrapper)
+#endif
     , m_isolatedWorld(&isolatedWorld)
 {
     if (function) {
         ASSERT(wrapper);
+#if defined(BUILDING_WIN98MINI__)
+        m_jsFunction.set(isolatedWorld.vm(), function);
+#else
         m_jsFunction = JSC::Weak<JSC::JSObject>(function);
+#endif
         m_isInitialized = true;
     }
     if (&isolatedWorld.vm() != commonVMOrNull())
@@ -85,11 +93,20 @@ void JSEventListener::replaceJSFunctionForAttributeListener(JSObject* function, 
     ASSERT(wrapper);
 
     m_wasCreatedFromMarkup = false;
+#if defined(BUILDING_WIN98MINI__)
+    auto& vm = m_isolatedWorld->vm();
+    m_jsFunction.set(vm, function);
+#else
     m_jsFunction = Weak { function };
+#endif
     if (m_isInitialized)
         ASSERT(m_wrapper.get() == wrapper);
     else {
+#if defined(BUILDING_WIN98MINI__)
+        m_wrapper.set(vm, wrapper);
+#else
         m_wrapper = Weak { wrapper };
+#endif
         m_isInitialized = true;
     }
 }
@@ -113,7 +130,12 @@ inline void JSEventListener::visitJSFunctionImpl(Visitor& visitor)
     if (!m_wrapper)
         return;
 
+#if defined(BUILDING_WIN98MINI__)
+    if (auto* jsFunction = m_jsFunction.get())
+        visitor.appendUnbarriered(jsFunction);
+#else
     visitor.append(m_jsFunction);
+#endif
 }
 
 void JSEventListener::visitJSFunction(AbstractSlotVisitor& visitor) { visitJSFunctionImpl(visitor); }
@@ -285,7 +307,7 @@ void JSEventListener::handleEvent(ScriptExecutionContext& scriptExecutionContext
 bool JSEventListener::operator==(const EventListener& listener) const
 {
     auto* other = dynamicDowncast<JSEventListener>(listener);
-    return other && m_jsFunction == other->m_jsFunction && m_isAttribute == other->m_isAttribute;
+    return other && m_jsFunction.get() == other->m_jsFunction.get() && m_isAttribute == other->m_isAttribute;
 }
 
 String JSEventListener::functionName() const

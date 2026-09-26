@@ -48,6 +48,10 @@ public:
     void cancelEvent(T&, const AtomString& eventType);
     void dispatchPendingEvents(Page*);
 
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+    const Timer* win98MiniTimerForDiagnostics() const { return &m_timer; }
+#endif
+
 #if ASSERT_ENABLED
     bool hasPendingEvents(T& sender) const
     {

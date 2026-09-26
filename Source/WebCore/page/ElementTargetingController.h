@@ -72,6 +72,11 @@ public:
     WEBCORE_EXPORT static RefPtr<Element> elementFromSelectors(Document&, const TargetedElementSelectors&);
     WEBCORE_EXPORT static TargetedElementSelectors selectorsForElement(Element&);
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const TimerBase* win98MiniRecentAdjustmentClientRectsCleanUpTimerForDiagnostics() const { return m_recentAdjustmentClientRectsCleanUpTimer.win98MiniTimerBaseForDiagnostics(); }
+    const Timer* win98MiniSelectorBasedVisibilityAdjustmentTimerForDiagnostics() const { return &m_selectorBasedVisibilityAdjustmentTimer; }
+#endif
+
 private:
     void cleanUpAdjustmentClientRects();
 

@@ -37,6 +37,7 @@
 
 namespace WebCore {
 
+
 class MixedFontGlyphPage {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(MixedFontGlyphPage);
 public:
@@ -489,7 +490,8 @@ GlyphData FontCascadeFonts::glyphDataForVariant(char32_t character, const FontCa
     if (shouldCheckForPrivateUseAreaCharacters && isPrivateUseAreaCharacter(character))
         return { 0, &primaryFont(description, fontSelector) }; // 0 is the font's reserved .notdef glyph
 
-    return glyphDataForSystemFallback(character, description, fontSelector, variant, resolvedEmojiPolicy, fallbackVisibility == FallbackVisibility::Invisible);
+    auto systemFallbackData = glyphDataForSystemFallback(character, description, fontSelector, variant, resolvedEmojiPolicy, fallbackVisibility == FallbackVisibility::Invisible);
+    return systemFallbackData;
 }
 
 static RefPtr<GlyphPage> glyphPageFromFontRanges(unsigned pageNumber, const FontRanges& fontRanges)

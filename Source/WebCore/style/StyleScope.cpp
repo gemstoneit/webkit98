@@ -101,6 +101,15 @@ Scope::~Scope()
     weakPtrFactory().revokeAll();
 }
 
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+const Timer* Scope::win98MiniMatchedDeclarationsCacheSweepTimerForDiagnostics() const
+{
+    if (!m_resolver)
+        return nullptr;
+    return m_resolver->win98MiniMatchedDeclarationsCacheForDiagnostics().win98MiniSweepTimerForDiagnostics();
+}
+#endif
+
 Resolver& Scope::resolver()
 {
     if (!m_resolver) {

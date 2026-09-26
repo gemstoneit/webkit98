@@ -62,6 +62,9 @@ public:
     void updateSharedTimer();
     void fireTimersInNestedEventLoop();
     void breakFireLoopForRenderingUpdate();
+#if defined(BUILDING_WIN98MINI__)
+    bool win98MiniFireOneTimerForDiagnostics();
+#endif
 
     unsigned nextHeapInsertionCount() { return m_currentHeapInsertionOrder++; }
 

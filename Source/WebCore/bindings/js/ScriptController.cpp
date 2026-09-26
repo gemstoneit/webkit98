@@ -90,6 +90,13 @@
 #include <wtf/text/MakeString.h>
 #include <wtf/text/TextPosition.h>
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+
 #define SCRIPTCONTROLLER_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - ScriptController::" fmt, this, ##__VA_ARGS__)
 
 #if ENABLE(LLVM_PROFILE_GENERATION)
@@ -309,24 +316,42 @@ void ScriptController::getAllWorlds(Vector<Ref<DOMWrapperWorld>>& worlds)
 
 void ScriptController::initScriptForWindowProxy(JSWindowProxy& windowProxy)
 {
+    WIN98_TRACE("ScriptController::initScriptForWindowProxy: enter");
     Ref world = windowProxy.world();
+    WIN98_TRACE("ScriptController::initScriptForWindowProxy: got world");
     JSC::VM& vm = world->vm();
+    WIN98_TRACE("ScriptController::initScriptForWindowProxy: got vm");
     auto scope = DECLARE_CATCH_SCOPE(vm);
+    WIN98_TRACE("ScriptController::initScriptForWindowProxy: catch scope");
 
+    WIN98_TRACE("ScriptController::initScriptForWindowProxy: updateDocument begin");
     jsCast<JSDOMWindow*>(windowProxy.window())->updateDocument();
+    WIN98_TRACE("ScriptController::initScriptForWindowProxy: updateDocument end");
     EXCEPTION_ASSERT_UNUSED(scope, !scope.exception());
 
+    WIN98_TRACE("ScriptController::initScriptForWindowProxy: setConsoleClient begin");
     windowProxy.window()->setConsoleClient(m_frame->console());
+    WIN98_TRACE("ScriptController::initScriptForWindowProxy: setConsoleClient end");
 
-    if (RefPtr document = m_frame->document())
+    if (RefPtr document = m_frame->document()) {
+        WIN98_TRACE("ScriptController::initScriptForWindowProxy: didCreateWindowProxy begin");
         document->checkedContentSecurityPolicy()->didCreateWindowProxy(windowProxy);
-
-    if (RefPtr page = m_frame->page()) {
-        windowProxy.attachDebugger(page->debugger());
-        windowProxy.window()->setProfileGroup(page->group().identifier());
+        WIN98_TRACE("ScriptController::initScriptForWindowProxy: didCreateWindowProxy end");
     }
 
+    if (RefPtr page = m_frame->page()) {
+        WIN98_TRACE("ScriptController::initScriptForWindowProxy: attachDebugger begin");
+        windowProxy.attachDebugger(page->debugger());
+        WIN98_TRACE("ScriptController::initScriptForWindowProxy: attachDebugger end");
+        WIN98_TRACE("ScriptController::initScriptForWindowProxy: setProfileGroup begin");
+        windowProxy.window()->setProfileGroup(page->group().identifier());
+        WIN98_TRACE("ScriptController::initScriptForWindowProxy: setProfileGroup end");
+    }
+
+    WIN98_TRACE("ScriptController::initScriptForWindowProxy: dispatch clear begin");
     protectedFrame()->loader().dispatchDidClearWindowObjectInWorld(world);
+    WIN98_TRACE("ScriptController::initScriptForWindowProxy: dispatch clear end");
+    WIN98_TRACE("ScriptController::initScriptForWindowProxy: exit");
 }
 
 Ref<LocalFrame> ScriptController::protectedFrame() const
@@ -437,8 +462,12 @@ WindowProxy& ScriptController::windowProxy()
 
 JSWindowProxy& ScriptController::jsWindowProxy(DOMWrapperWorld& world)
 {
+    WIN98_TRACE("ScriptController::jsWindowProxy: enter");
+    WIN98_TRACE("ScriptController::jsWindowProxy: protected proxy begin");
     auto* jsWindowProxy = protectedFrame()->protectedWindowProxy()->jsWindowProxy(world);
+    WIN98_TRACE(jsWindowProxy ? "ScriptController::jsWindowProxy: protected proxy end" : "ScriptController::jsWindowProxy: protected proxy null");
     ASSERT_WITH_MESSAGE(jsWindowProxy, "The JSWindowProxy can only be null if the frame has been destroyed");
+    WIN98_TRACE("ScriptController::jsWindowProxy: exit");
     return *jsWindowProxy;
 }
 

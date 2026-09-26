@@ -939,8 +939,9 @@ static IntRect calculateSubsurfaceRect(FloatRect& dest, FloatRect& src, const In
 void drawSurface(GraphicsContextCairo& platformContext, cairo_surface_t* surface, const FloatRect& originalDestRect, const FloatRect& originalSrcRect, InterpolationQuality imageInterpolationQuality, float globalAlpha, const ShadowState& shadowState, OrientationSizing orientationSizing)
 {
     // Avoid invalid cairo matrix with small values.
-    if (std::abs(originalDestRect.width()) < 0.5f || std::abs(originalDestRect.height()) < 0.5f)
+    if (std::abs(originalDestRect.width()) < 0.5f || std::abs(originalDestRect.height()) < 0.5f) {
         return;
+    }
 
     FloatRect destRect = originalDestRect;
     FloatRect srcRect = originalSrcRect;
@@ -958,8 +959,9 @@ void drawSurface(GraphicsContextCairo& platformContext, cairo_surface_t* surface
     RefPtr<cairo_surface_t> patternSurface = surface;
     FloatSize padding;
     auto surfaceSize = cairoSurfaceSize(surface);
-    if (surfaceSize.isEmpty())
+    if (surfaceSize.isEmpty()) {
         return;
+    }
     bool didUseWidthAsHeight = orientationSizing == OrientationSizing::WidthAsHeight;
     if (didUseWidthAsHeight)
         surfaceSize =  surfaceSize.transposedSize();

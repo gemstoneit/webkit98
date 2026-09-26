@@ -174,6 +174,10 @@ public:
     WEBCORE_EXPORT void pruneDeadResources(); // Automatically decide how much to prune.
     WEBCORE_EXPORT void pruneLiveResources(bool shouldDestroyDecodedDataForAllLiveResources = false);
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniPruneTimerForDiagnostics() const { return &m_pruneTimer; }
+#endif
+
     WEBCORE_EXPORT void pruneDeadResourcesToSize(unsigned targetSize);
     WEBCORE_EXPORT void pruneLiveResourcesToSize(unsigned targetSize, bool shouldDestroyDecodedDataForAllLiveResources = false);
 

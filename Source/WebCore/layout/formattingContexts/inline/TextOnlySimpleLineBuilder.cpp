@@ -34,6 +34,7 @@
 namespace WebCore {
 namespace Layout {
 
+
 struct TextOnlyLineBreakResult {
     InlineContentBreaker::IsEndOfLine isEndOfLine { InlineContentBreaker::IsEndOfLine::Yes };
     size_t committedCount { 0 };
@@ -530,4 +531,3 @@ bool TextOnlySimpleLineBuilder::isEligibleForSimplifiedInlineLayoutByStyle(const
 
 }
 }
-

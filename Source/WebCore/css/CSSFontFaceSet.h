@@ -89,6 +89,22 @@ public:
 
     size_t facesPartitionIndex() const { return m_facesPartitionIndex; }
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    void win98MiniForEachFontFaceTimeoutTimerForDiagnostics(void (*callback)(const Timer*, void*), void* context) const
+    {
+        if (!callback)
+            return;
+
+        for (auto& face : m_faces)
+            callback(face->win98MiniTimeoutTimerForDiagnostics(), context);
+
+        for (auto& pair : m_locallyInstalledFacesLookupTable) {
+            for (auto& face : pair.value)
+                callback(face->win98MiniTimeoutTimerForDiagnostics(), context);
+        }
+    }
+#endif
+
     ExceptionOr<Vector<std::reference_wrapper<CSSFontFace>>> matchingFacesExcludingPreinstalledFonts(ScriptExecutionContext&, const String& font, const String& text);
 
     // FIXME: Should this be implemented?

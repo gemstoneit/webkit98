@@ -151,6 +151,10 @@ public:
 
     AllowUserInstalledFonts allowUserInstalledFonts() const { return m_allowUserInstalledFonts; }
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniTimeoutTimerForDiagnostics() const { return &m_timeoutTimer; }
+#endif
+
     void updateStyleIfNeeded();
 
     bool hasSVGFontFaceSource() const;

@@ -91,6 +91,9 @@ public:
 
     void scheduleForResume();
     bool isScheduledForResume() const { return m_isSuspendedWithActiveTimer || m_continueNextChunkTimer.isActive() || m_documentHasActiveParserYieldTokens; }
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniContinueNextChunkTimerForDiagnostics() const { return &m_continueNextChunkTimer; }
+#endif
 
     void suspend();
     void resume();

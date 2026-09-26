@@ -27,6 +27,7 @@
 #pragma once
 
 #include "HTMLInputStream.h"
+#include "HTMLParserScheduler.h"
 #include "HTMLScriptRunnerHost.h"
 #include "HTMLTokenizer.h"
 #include "PendingScriptClient.h"
@@ -45,6 +46,7 @@ class HTMLScriptRunner;
 class HTMLTreeBuilder;
 class HTMLResourcePreloader;
 class PumpSession;
+class Timer;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(HTMLDocumentParser);
 class HTMLDocumentParser : public ScriptableDocumentParser, private HTMLScriptRunnerHost, private PendingScriptClient, public CanMakeCheckedPtr<HTMLDocumentParser> {
@@ -62,6 +64,9 @@ public:
     void setDidBeginCheckedPtrDeletion() final { CanMakeCheckedPtr::setDidBeginCheckedPtrDeletion(); }
 
     HTMLDocumentParser* asHTMLDocumentParser() final { return this; }
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniParserSchedulerContinueNextChunkTimerForDiagnostics() const;
+#endif
 
     static void parseDocumentFragment(const String&, DocumentFragment&, Element& contextElement, OptionSet<ParserContentPolicy> = { ParserContentPolicy::AllowScriptingContent }, CustomElementRegistry* = nullptr);
 
@@ -171,5 +176,12 @@ inline bool HTMLDocumentParser::hasPreloadScanner() const
 {
     return m_preloadScanner.get();
 }
+
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+inline const Timer* HTMLDocumentParser::win98MiniParserSchedulerContinueNextChunkTimerForDiagnostics() const
+{
+    return m_parserScheduler ? m_parserScheduler->win98MiniContinueNextChunkTimerForDiagnostics() : nullptr;
+}
+#endif
 
 } // namespace WebCore

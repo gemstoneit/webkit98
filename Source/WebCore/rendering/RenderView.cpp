@@ -73,11 +73,54 @@
 #include "Settings.h"
 #include "StyleScope.h"
 #include "TransformState.h"
+#include <stdio.h>
 #include <wtf/SetForScope.h>
 #include <wtf/StackStats.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
+
+
+#if defined(BUILDING_WIN98MINI__)
+static void win98MiniRenderViewTrace(const char* phase, const RenderView& view, bool relayoutKnown = false, bool relayoutChildren = false)
+{
+    unsigned childCount = 0;
+    unsigned childNeedsLayout = 0;
+    for (auto& box : childrenOfType<RenderBox>(view)) {
+        ++childCount;
+        if (box.needsLayout())
+            ++childNeedsLayout;
+    }
+
+    FILE* file = fopen("C:\\DOMSMOKE\\RENDERVW.LOG", "ab");
+    if (!file)
+        file = fopen("RENDERVW.LOG", "ab");
+    if (!file)
+        return;
+
+    char message[384];
+    snprintf(
+        message,
+        sizeof(message),
+        "RenderView::layout %s self=%p needsLayout=%u childNeeds=%u childCount=%u width=%d viewWidth=%d height=%d viewHeight=%d relayoutKnown=%u relayoutChildren=%u paginated=%u",
+        phase ? phase : "",
+        &view,
+        view.needsLayout() ? 1U : 0U,
+        childNeedsLayout,
+        childCount,
+        view.width().toInt(),
+        view.viewWidth(),
+        view.height().toInt(),
+        view.viewHeight(),
+        relayoutKnown ? 1U : 0U,
+        relayoutChildren ? 1U : 0U,
+        view.document().paginated() ? 1U : 0U);
+    fputs(message, file);
+    fputs("\r\n", file);
+    fclose(file);
+}
+#endif
+
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderView);
 
@@ -174,8 +217,14 @@ bool RenderView::isChildAllowed(const RenderObject& child, const RenderStyle&) c
 void RenderView::layout()
 {
     StackStats::LayoutCheckPoint layoutCheckPoint;
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniRenderViewTrace("enter", *this);
+#endif
     if (!protectedDocument()->paginated())
         m_pageLogicalSize = { };
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniRenderViewTrace("after-page-logical-size-check", *this);
+#endif
 
     if (shouldUsePrintingLayout()) {
         if (!m_pageLogicalSize)
@@ -183,11 +232,20 @@ void RenderView::layout()
         m_minPreferredLogicalWidth = m_pageLogicalSize->width();
         m_maxPreferredLogicalWidth = m_minPreferredLogicalWidth;
     }
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniRenderViewTrace("after-printing-layout-check", *this);
+#endif
 
     // Use calcWidth/Height to get the new width/height, since this will take the full page zoom factor into account.
     bool relayoutChildren = !shouldUsePrintingLayout() && (width() != viewWidth() || height() != viewHeight());
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniRenderViewTrace("after-relayout-children-check", *this, true, relayoutChildren);
+#endif
     if (relayoutChildren) {
         setChildNeedsLayout(MarkOnlyThis);
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniRenderViewTrace("after-set-child-needs-layout", *this, true, relayoutChildren);
+#endif
 
         for (auto& box : childrenOfType<RenderBox>(*this)) {
             if (box.hasRelativeLogicalHeight()
@@ -198,22 +256,51 @@ void RenderView::layout()
                 )
                 box.setChildNeedsLayout(MarkOnlyThis);
         }
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniRenderViewTrace("after-relative-child-scan", *this, true, relayoutChildren);
+#endif
     }
 
     ASSERT(!frameView().layoutContext().layoutState());
-    if (!needsLayout())
+    if (!needsLayout()) {
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniRenderViewTrace("return-no-needs-layout", *this, true, relayoutChildren);
+#endif
         return;
+    }
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniRenderViewTrace("before-layout-state-maintainer", *this, true, relayoutChildren);
+#endif
 
     LayoutStateMaintainer statePusher(*this, { }, false, valueOrDefault(m_pageLogicalSize).height(), m_pageLogicalHeightChanged);
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniRenderViewTrace("after-layout-state-maintainer", *this, true, relayoutChildren);
+#endif
 
     m_pageLogicalHeightChanged = false;
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniRenderViewTrace("after-clear-page-height-changed", *this, true, relayoutChildren);
+#endif
 
     // FIXME: This should be called only when frame view (or the canvas we render onto) size changes.
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniRenderViewTrace("before-update-icb-size", *this, true, relayoutChildren);
+#endif
     updateInitialContainingBlockSize();
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniRenderViewTrace("after-update-icb-size", *this, true, relayoutChildren);
+    win98MiniRenderViewTrace("before-render-block-flow-layout", *this, true, relayoutChildren);
+#endif
     RenderBlockFlow::layout();
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniRenderViewTrace("after-render-block-flow-layout", *this, true, relayoutChildren);
+#endif
 
 #ifndef NDEBUG
     frameView().layoutContext().checkLayoutState();
+#endif
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniRenderViewTrace("exit", *this, true, relayoutChildren);
 #endif
 }
 

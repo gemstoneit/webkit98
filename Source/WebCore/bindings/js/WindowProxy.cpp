@@ -40,6 +40,13 @@
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/TZoneMallocInlines.h>
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+
 namespace WebCore {
 
 using namespace JSC;
@@ -112,16 +119,26 @@ void WindowProxy::destroyJSWindowProxy(DOMWrapperWorld& world)
 
 JSWindowProxy& WindowProxy::createJSWindowProxy(DOMWrapperWorld& world)
 {
+    WIN98_TRACE("WindowProxy::createJSWindowProxy: enter");
     ASSERT(m_frame);
 
     ASSERT(!m_jsWindowProxies.contains(&world));
     ASSERT(m_frame->window());
 
+    WIN98_TRACE("WindowProxy::createJSWindowProxy: world vm begin");
     VM& vm = world.vm();
+    WIN98_TRACE("WindowProxy::createJSWindowProxy: world vm end");
 
+    WIN98_TRACE("WindowProxy::createJSWindowProxy: JSWindowProxy create begin");
     Strong<JSWindowProxy> jsWindowProxy(vm, &JSWindowProxy::create(vm, *m_frame->protectedWindow().get(), world));
+    WIN98_TRACE("WindowProxy::createJSWindowProxy: JSWindowProxy create end");
+    WIN98_TRACE("WindowProxy::createJSWindowProxy: map add begin");
     m_jsWindowProxies.add(world, jsWindowProxy);
+    WIN98_TRACE("WindowProxy::createJSWindowProxy: map add end");
+    WIN98_TRACE("WindowProxy::createJSWindowProxy: world didCreate begin");
     world.didCreateWindowProxy(this);
+    WIN98_TRACE("WindowProxy::createJSWindowProxy: world didCreate end");
+    WIN98_TRACE("WindowProxy::createJSWindowProxy: exit");
     return *jsWindowProxy.get();
 }
 
@@ -139,12 +156,24 @@ JSDOMGlobalObject* WindowProxy::globalObject(DOMWrapperWorld& world)
 
 JSWindowProxy& WindowProxy::createJSWindowProxyWithInitializedScript(DOMWrapperWorld& world)
 {
+    WIN98_TRACE("WindowProxy::createJSWindowProxyWithInitializedScript: enter");
     ASSERT(m_frame);
 
-    JSLockHolder lock(world.vm());
+    WIN98_TRACE("WindowProxy::createJSWindowProxyWithInitializedScript: world vm begin");
+    auto& vm = world.vm();
+    WIN98_TRACE("WindowProxy::createJSWindowProxyWithInitializedScript: world vm end");
+    WIN98_TRACE("WindowProxy::createJSWindowProxyWithInitializedScript: lock begin");
+    JSLockHolder lock(vm);
+    WIN98_TRACE("WindowProxy::createJSWindowProxyWithInitializedScript: lock end");
+    WIN98_TRACE("WindowProxy::createJSWindowProxyWithInitializedScript: create proxy begin");
     auto& windowProxy = createJSWindowProxy(world);
-    if (RefPtr localFrame = dynamicDowncast<LocalFrame>(*m_frame))
+    WIN98_TRACE("WindowProxy::createJSWindowProxyWithInitializedScript: create proxy end");
+    if (RefPtr localFrame = dynamicDowncast<LocalFrame>(*m_frame)) {
+        WIN98_TRACE("WindowProxy::createJSWindowProxyWithInitializedScript: init script begin");
         localFrame->checkedScript()->initScriptForWindowProxy(windowProxy);
+        WIN98_TRACE("WindowProxy::createJSWindowProxyWithInitializedScript: init script end");
+    }
+    WIN98_TRACE("WindowProxy::createJSWindowProxyWithInitializedScript: exit");
     return windowProxy;
 }
 
@@ -226,12 +255,16 @@ JSWindowProxy* WindowProxy::existingJSWindowProxy(DOMWrapperWorld& world) const
 
 JSWindowProxy* WindowProxy::jsWindowProxy(DOMWrapperWorld& world)
 {
+    WIN98_TRACE("WindowProxy::jsWindowProxy: enter");
     if (!m_frame)
         return nullptr;
 
-    if (auto* existingProxy = existingJSWindowProxy(world))
+    if (auto* existingProxy = existingJSWindowProxy(world)) {
+        WIN98_TRACE("WindowProxy::jsWindowProxy: existing proxy");
         return existingProxy;
+    }
 
+    WIN98_TRACE("WindowProxy::jsWindowProxy: create initialized proxy begin");
     return &createJSWindowProxyWithInitializedScript(world);
 }
 

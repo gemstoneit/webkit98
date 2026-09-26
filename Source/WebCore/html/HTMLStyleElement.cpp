@@ -160,6 +160,13 @@ void HTMLStyleElement::dispatchPendingLoadEvents(Page* page)
     styleLoadEventSenderSingleton().dispatchPendingEvents(page);
 }
 
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+const Timer* HTMLStyleElement::win98MiniLoadEventSenderTimerForDiagnostics()
+{
+    return styleLoadEventSenderSingleton().win98MiniTimerForDiagnostics();
+}
+#endif
+
 void HTMLStyleElement::dispatchPendingEvent(StyleEventSender* eventSender, const AtomString& eventType)
 {
     ASSERT_UNUSED(eventSender, eventSender == &styleLoadEventSenderSingleton());

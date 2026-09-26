@@ -50,6 +50,13 @@
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+
 namespace WebCore {
 
 using namespace JSC;
@@ -66,16 +73,30 @@ JSWindowProxy::~JSWindowProxy() = default;
 
 void JSWindowProxy::finishCreation(VM& vm, DOMWindow& window)
 {
+    WIN98_TRACE("JSWindowProxy::finishCreation: enter");
+    WIN98_TRACE("JSWindowProxy::finishCreation: base begin");
     Base::finishCreation(vm);
+    WIN98_TRACE("JSWindowProxy::finishCreation: base end");
     ASSERT(inherits(info()));
+    WIN98_TRACE("JSWindowProxy::finishCreation: setWindow DOM begin");
     setWindow(window);
+    WIN98_TRACE("JSWindowProxy::finishCreation: setWindow DOM end");
+    WIN98_TRACE("JSWindowProxy::finishCreation: exit");
 }
 
 JSWindowProxy& JSWindowProxy::create(VM& vm, DOMWindow& window, DOMWrapperWorld& world)
 {
+    WIN98_TRACE("JSWindowProxy::create: enter");
+    WIN98_TRACE("JSWindowProxy::create: structure begin");
     auto& structure = *Structure::create(vm, 0, jsNull(), TypeInfo(GlobalProxyType, StructureFlags), info());
+    WIN98_TRACE("JSWindowProxy::create: structure end");
+    WIN98_TRACE("JSWindowProxy::create: allocate begin");
     auto& proxy = *new (NotNull, allocateCell<JSWindowProxy>(vm)) JSWindowProxy(vm, structure, world);
+    WIN98_TRACE("JSWindowProxy::create: allocate end");
+    WIN98_TRACE("JSWindowProxy::create: finish begin");
     proxy.finishCreation(vm, window);
+    WIN98_TRACE("JSWindowProxy::create: finish end");
+    WIN98_TRACE("JSWindowProxy::create: exit");
     return proxy;
 }
 
@@ -87,30 +108,47 @@ void JSWindowProxy::destroy(JSCell* cell)
 
 void JSWindowProxy::setWindow(VM& vm, JSDOMGlobalObject& window)
 {
+    WIN98_TRACE("JSWindowProxy::setWindow global: enter");
     ASSERT(window.classInfo() == JSDOMWindow::info());
+    WIN98_TRACE("JSWindowProxy::setWindow global: setTarget begin");
     setTarget(vm, &window);
+    WIN98_TRACE("JSWindowProxy::setWindow global: setTarget end");
+    WIN98_TRACE("JSWindowProxy::setWindow global: gcSoon begin");
     GarbageCollectionController::singleton().garbageCollectSoon();
+    WIN98_TRACE("JSWindowProxy::setWindow global: gcSoon end");
+    WIN98_TRACE("JSWindowProxy::setWindow global: exit");
 }
 
 void JSWindowProxy::setWindow(DOMWindow& domWindow)
 {
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: enter");
     // Replacing JSDOMWindow via telling JSWindowProxy to use the same LocalDOMWindow it already uses makes no sense,
     // so we'd better never try to.
     ASSERT(!window() || &domWindow != &wrapped());
 
     auto* localWindow = dynamicDowncast<LocalDOMWindow>(domWindow);
 
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: commonVM begin");
     VM& vm = commonVM();
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: commonVM end");
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: prototype structure begin");
     auto& prototypeStructure = *JSDOMWindowPrototype::createStructure(vm, nullptr, jsNull());
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: prototype structure end");
 
     // Explicitly protect the prototype so it isn't collected when we allocate the global object.
     // (Once the global object is fully constructed, it will mark its own prototype.)
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: prototype create begin");
     JSNonFinalObject* prototype = static_cast<JSNonFinalObject*>(JSDOMWindowPrototype::create(vm, nullptr, &prototypeStructure));
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: prototype create end");
     JSC::EnsureStillAliveScope protectedPrototype(prototype);
 
     JSDOMGlobalObject* window = nullptr;
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: window structure begin");
     auto& windowStructure = *JSDOMWindow::createStructure(vm, nullptr, prototype);
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: window structure end");
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: JSDOMWindow create begin");
     window = JSDOMWindow::create(vm, &windowStructure, domWindow, this);
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: JSDOMWindow create end");
     if (localWindow) {
         bool linkedWithNewSDK = true;
 #if PLATFORM(COCOA)
@@ -120,17 +158,32 @@ void JSWindowProxy::setWindow(DOMWindow& domWindow)
             localWindow->setAsWrappedWithoutInitializedSecurityOrigin();
     }
 
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: prototype setGlobalObject begin");
     prototype->structure()->setGlobalObject(vm, window);
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: prototype setGlobalObject end");
 
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: properties structure begin");
     auto& propertiesStructure = *JSDOMWindowProperties::createStructure(vm, window, JSEventTarget::prototype(vm, *window));
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: properties structure end");
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: properties create begin");
     auto& properties = *JSDOMWindowProperties::create(&propertiesStructure, *window);
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: properties create end");
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: properties didBecomePrototype begin");
     properties.didBecomePrototype(vm);
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: properties didBecomePrototype end");
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: prototype setPrototype begin");
     prototype->structure()->setPrototypeWithoutTransition(vm, &properties);
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: prototype setPrototype end");
 
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: setWindow global begin");
     setWindow(vm, *window);
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: setWindow global end");
 
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: assert globalObject begin");
     ASSERT(window->globalObject() == window);
     ASSERT(prototype->globalObject() == window);
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: assert globalObject end");
+    WIN98_TRACE("JSWindowProxy::setWindow DOM: exit");
 }
 
 WindowProxy* JSWindowProxy::windowProxy() const

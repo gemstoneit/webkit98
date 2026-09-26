@@ -174,6 +174,11 @@ public:
     };
     static constexpr unsigned bitWidthOfPreloadResult = 2;
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const TimerBase* win98MiniDecodedDataDeletionTimerForDiagnostics() const;
+    void win98MiniForEachClientCallbackTimerForDiagnostics(NOESCAPE const Function<void(const Timer*)>&) const;
+#endif
+
     PreloadResult preloadResult() const { return static_cast<PreloadResult>(m_preloadResult); }
 
     virtual void didAddClient(CachedResourceClient&);
@@ -472,9 +477,30 @@ inline bool CachedResource::isMainOrMediaOrIconOrRawResource() const
         || type() == Type::MediaResource
 #if ENABLE(MODEL_ELEMENT)
         || type() == Type::EnvironmentMapResource
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniTimerForDiagnostics() const { return &m_timer; }
+#endif
+
         || type() == Type::ModelResource
 #endif
         || type() == Type::Icon
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+inline const TimerBase* CachedResource::win98MiniDecodedDataDeletionTimerForDiagnostics() const
+{
+    if (!m_response)
+        return nullptr;
+    return m_response->m_decodedDataDeletionTimer.win98MiniTimerBaseForDiagnostics();
+}
+
+inline void CachedResource::win98MiniForEachClientCallbackTimerForDiagnostics(NOESCAPE const Function<void(const Timer*)>& function) const
+{
+    for (auto entry : m_clientsAwaitingCallback) {
+        if (entry.value)
+            function(entry.value->win98MiniTimerForDiagnostics());
+    }
+}
+#endif
+
         || type() == Type::RawResource
         || type() == Type::Beacon
         || type() == Type::Ping;

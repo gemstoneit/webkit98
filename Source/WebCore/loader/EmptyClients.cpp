@@ -76,6 +76,7 @@
 #include "PopupMenu.h"
 #include "ProgressTrackerClient.h"
 #include "RemoteFrameClient.h"
+#include "ResourceRequest.h"
 #include "SearchPopupMenu.h"
 #include "SecurityOriginData.h"
 #include "SocketProvider.h"
@@ -114,6 +115,31 @@
 #endif
 
 namespace WebCore {
+
+#if defined(BUILDING_WIN98MINI__)
+extern "C" {
+typedef int (*Win98MiniEmptyFrameNavigationPolicyCallback)(const char* url, int newWindow);
+
+static Win98MiniEmptyFrameNavigationPolicyCallback g_win98MiniEmptyFrameNavigationPolicyCallback;
+
+void WebCoreWin98MiniSetEmptyFrameNavigationPolicyCallback(Win98MiniEmptyFrameNavigationPolicyCallback callback)
+{
+    g_win98MiniEmptyFrameNavigationPolicyCallback = callback;
+}
+}
+
+static bool win98MiniEmptyFrameNavigationPolicyCaptured(const ResourceRequest& request, bool newWindow)
+{
+    if (!g_win98MiniEmptyFrameNavigationPolicyCallback)
+        return false;
+
+    auto url = request.url().string().utf8();
+    if (url.isEmpty())
+        return false;
+
+    return g_win98MiniEmptyFrameNavigationPolicyCallback(url.data(), newWindow ? 1 : 0);
+}
+#endif
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(DummyStorageProvider);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(EmptyChromeClient);
@@ -668,12 +694,30 @@ RefPtr<Icon> EmptyChromeClient::createIconForFiles(const Vector<String>& /* file
 
 // MARK: -
 
-void EmptyFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const NavigationAction&, const ResourceRequest&, FormState*, const String&, std::optional<HitTestResult>&&, FramePolicyFunction&&)
+void EmptyFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const NavigationAction&, const ResourceRequest& request, FormState*, const String&, std::optional<HitTestResult>&&, FramePolicyFunction&& function)
 {
+#if defined(BUILDING_WIN98MINI__)
+    if (win98MiniEmptyFrameNavigationPolicyCaptured(request, true)) {
+        function(PolicyAction::Ignore);
+        return;
+    }
+#else
+    UNUSED_PARAM(request);
+#endif
+    function(PolicyAction::Use);
 }
 
-void EmptyFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, const ResourceResponse&, FormState*, const String&, std::optional<NavigationIdentifier>, std::optional<HitTestResult>&&, bool, NavigationUpgradeToHTTPSBehavior, SandboxFlags, PolicyDecisionMode, FramePolicyFunction&&)
+void EmptyFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest& request, const ResourceResponse&, FormState*, const String&, std::optional<NavigationIdentifier>, std::optional<HitTestResult>&&, bool, NavigationUpgradeToHTTPSBehavior, SandboxFlags, PolicyDecisionMode, FramePolicyFunction&& function)
 {
+#if defined(BUILDING_WIN98MINI__)
+    if (win98MiniEmptyFrameNavigationPolicyCaptured(request, false)) {
+        function(PolicyAction::Ignore);
+        return;
+    }
+#else
+    UNUSED_PARAM(request);
+#endif
+    function(PolicyAction::Use);
 }
 
 void EmptyFrameLoaderClient::updateSandboxFlags(SandboxFlags)

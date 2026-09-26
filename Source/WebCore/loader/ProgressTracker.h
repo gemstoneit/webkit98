@@ -67,6 +67,10 @@ public:
 
     bool isMainLoadProgressing() const;
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniProgressHeartbeatTimerForDiagnostics() const { return &m_progressHeartbeatTimer; }
+#endif
+
 private:
     void reset();
     void finalProgressComplete();

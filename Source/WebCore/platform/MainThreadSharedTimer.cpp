@@ -46,7 +46,7 @@ MainThreadSharedTimer& MainThreadSharedTimer::singleton()
     return instance;
 }
 
-#if USE(CF) || OS(WINDOWS)
+#if USE(CF) || (OS(WINDOWS) && !defined(BUILDING_WIN98MINI__))
 MainThreadSharedTimer::MainThreadSharedTimer() = default;
 #else
 MainThreadSharedTimer::MainThreadSharedTimer()

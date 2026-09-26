@@ -75,6 +75,10 @@ public:
     void startPanScrolling(RenderBox&, const IntPoint&);
 #endif
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniAutoscrollTimerForDiagnostics() const { return &m_autoscrollTimer; }
+#endif
+
 private:
     void autoscrollTimerFired();
     void startAutoscrollTimer();

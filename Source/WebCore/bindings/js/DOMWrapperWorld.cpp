@@ -29,6 +29,13 @@
 #include <JavaScriptCore/WeakInlines.h>
 #include <wtf/MainThread.h>
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+
 namespace WebCore {
 using namespace JSC;
 
@@ -37,9 +44,13 @@ DOMWrapperWorld::DOMWrapperWorld(JSC::VM& vm, Type type, const String& name)
     , m_name(name)
     , m_type(type)
 {
+    WIN98_TRACE("DOMWrapperWorld::ctor: enter");
     VM::ClientData* clientData = m_vm.clientData;
     ASSERT(clientData);
+    WIN98_TRACE("DOMWrapperWorld::ctor: rememberWorld begin");
     downcast<JSVMClientData>(clientData)->rememberWorld(*this);
+    WIN98_TRACE("DOMWrapperWorld::ctor: rememberWorld end");
+    WIN98_TRACE("DOMWrapperWorld::ctor: exit");
 }
 
 DOMWrapperWorld::~DOMWrapperWorld()
@@ -64,15 +75,25 @@ void DOMWrapperWorld::clearWrappers()
 
 DOMWrapperWorld& normalWorld(JSC::VM& vm)
 {
+    WIN98_TRACE("normalWorld: enter");
     VM::ClientData* clientData = vm.clientData;
     ASSERT(clientData);
-    return downcast<JSVMClientData>(clientData)->normalWorldSingleton();
+    auto& world = downcast<JSVMClientData>(clientData)->normalWorldSingleton();
+    WIN98_TRACE("normalWorld: exit");
+    return world;
 }
 
 DOMWrapperWorld& mainThreadNormalWorldSingleton()
 {
+    WIN98_TRACE("mainThreadNormalWorldSingleton: enter");
     ASSERT(isMainThread());
-    static NeverDestroyed<Ref<DOMWrapperWorld>> cachedNormalWorld = normalWorld(commonVM());
+    static NeverDestroyed<Ref<DOMWrapperWorld>> cachedNormalWorld = [] {
+        WIN98_TRACE("mainThreadNormalWorldSingleton: static init begin");
+        auto& world = normalWorld(commonVM());
+        WIN98_TRACE("mainThreadNormalWorldSingleton: static init normalWorld end");
+        return Ref<DOMWrapperWorld> { world };
+    }();
+    WIN98_TRACE("mainThreadNormalWorldSingleton: after static");
     return cachedNormalWorld->get();
 }
 

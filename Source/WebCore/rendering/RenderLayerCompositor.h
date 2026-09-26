@@ -171,6 +171,11 @@ public:
     explicit RenderLayerCompositor(RenderView&);
     virtual ~RenderLayerCompositor();
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniUpdateCompositingLayersTimerForDiagnostics() const { return &m_updateCompositingLayersTimer; }
+    const Timer* win98MiniUpdateRenderingTimerForDiagnostics() const { return &m_updateRenderingTimer; }
+#endif
+
     // Return true if this RenderView is in "compositing mode" (i.e. has one or more
     // composited RenderLayers)
     bool usesCompositing() const { return m_compositing; }

@@ -139,6 +139,10 @@ public:
     static bool systemAllowsAnimationControls() { return gSystemAllowsAnimationControls; }
     WEBCORE_EXPORT static void setSystemAllowsAnimationControls(bool allowsControls);
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniAnimationStartTimerForDiagnostics() const { return m_animationStartTimer.get(); }
+#endif
+
     // Typically the CachedImage that owns us.
     RefPtr<ImageObserver> imageObserver() const;
     void setImageObserver(RefPtr<ImageObserver>&&);

@@ -89,6 +89,13 @@
 #include <JavaScriptCore/JSRemoteInspector.h>
 #endif
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+
 namespace WebCore {
 using namespace JSC;
 
@@ -309,80 +316,147 @@ JSC_DEFINE_HOST_FUNCTION(byteLengthQueuingStrategySize, (JSGlobalObject* globalO
 
 SUPPRESS_ASAN void JSDOMGlobalObject::addBuiltinGlobals(VM& vm)
 {
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: enter");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: initialize begin");
     m_builtinInternalFunctions->initialize(*this);
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: initialize end");
 
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: builtinNames begin");
     auto& builtinNames = WebCore::builtinNames(vm);
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: builtinNames end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: makeThisTypeError function begin");
+    auto* makeThisTypeErrorFunction = JSFunction::create(vm, this, 2, String(), makeThisTypeErrorForBuiltins, ImplementationVisibility::Public);
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: makeThisTypeError function end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: makeGetterTypeError function begin");
+    auto* makeGetterTypeErrorFunction = JSFunction::create(vm, this, 2, String(), makeGetterTypeErrorForBuiltins, ImplementationVisibility::Public);
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: makeGetterTypeError function end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: makeDOMException function begin");
+    auto* makeDOMExceptionFunction = JSFunction::create(vm, this, 2, String(), makeDOMExceptionForBuiltins, ImplementationVisibility::Public);
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: makeDOMException function end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: addAbortAlgorithmToSignal function begin");
+    auto* addAbortAlgorithmToSignalFunction = JSFunction::create(vm, this, 2, String(), addAbortAlgorithmToSignal, ImplementationVisibility::Public);
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: addAbortAlgorithmToSignal function end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: removeAbortAlgorithmFromSignal function begin");
+    auto* removeAbortAlgorithmFromSignalFunction = JSFunction::create(vm, this, 2, String(), removeAbortAlgorithmFromSignal, ImplementationVisibility::Public);
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: removeAbortAlgorithmFromSignal function end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: signalAbort function begin");
+    auto* signalAbortFunction = JSFunction::create(vm, this, 2, String(), signalAbort, ImplementationVisibility::Public);
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: signalAbort function end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: createAbortSignal function begin");
+    auto* createAbortSignalFunction = JSFunction::create(vm, this, 0, String(), createAbortSignal, ImplementationVisibility::Public);
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: createAbortSignal function end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: cloneArrayBuffer function begin");
+    auto* cloneArrayBufferFunction = JSFunction::create(vm, this, 3, String(), cloneArrayBuffer, ImplementationVisibility::Public);
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: cloneArrayBuffer function end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: structuredCloneForStream function begin");
+    auto* structuredCloneForStreamFunction = JSFunction::create(vm, this, 1, String(), structuredCloneForStream, ImplementationVisibility::Public);
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: structuredCloneForStream function end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: arrayBufferConstructor begin");
+    auto arrayBufferConstructorValue = arrayBufferConstructor();
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: arrayBufferConstructor end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: isAbortSignal function begin");
+    auto* isAbortSignalFunction = JSFunction::create(vm, this, 1, String(), isAbortSignal, ImplementationVisibility::Public);
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: isAbortSignal function end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: getInternalReadableStream function begin");
+    auto* getInternalReadableStreamFunction = JSFunction::create(vm, this, 1, String(), getInternalReadableStream, ImplementationVisibility::Public);
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: getInternalReadableStream function end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: getInternalWritableStream function begin");
+    auto* getInternalWritableStreamFunction = JSFunction::create(vm, this, 1, String(), getInternalWritableStream, ImplementationVisibility::Public);
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: getInternalWritableStream function end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: getGlobalObject function begin");
+    auto* getGlobalObjectFunction = JSFunction::create(vm, this, 1, String(), getGlobalObject, ImplementationVisibility::Public);
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: getGlobalObject function end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: createWritableStreamFromInternal function begin");
+    auto* createWritableStreamFromInternalFunction = JSFunction::create(vm, this, 1, String(), createWritableStreamFromInternal, ImplementationVisibility::Public);
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: createWritableStreamFromInternal function end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: staticGlobals begin");
     JSDOMGlobalObject::GlobalPropertyInfo staticGlobals[] = {
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.makeThisTypeErrorPrivateName(),
-            JSFunction::create(vm, this, 2, String(), makeThisTypeErrorForBuiltins, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+            makeThisTypeErrorFunction, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.makeGetterTypeErrorPrivateName(),
-            JSFunction::create(vm, this, 2, String(), makeGetterTypeErrorForBuiltins, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+            makeGetterTypeErrorFunction, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.makeDOMExceptionPrivateName(),
-            JSFunction::create(vm, this, 2, String(), makeDOMExceptionForBuiltins, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+            makeDOMExceptionFunction, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.addAbortAlgorithmToSignalPrivateName(),
-            JSFunction::create(vm, this, 2, String(), addAbortAlgorithmToSignal, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+            addAbortAlgorithmToSignalFunction, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.removeAbortAlgorithmFromSignalPrivateName(),
-            JSFunction::create(vm, this, 2, String(), removeAbortAlgorithmFromSignal, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+            removeAbortAlgorithmFromSignalFunction, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.signalAbortPrivateName(),
-            JSFunction::create(vm, this, 2, String(), signalAbort, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+            signalAbortFunction, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.createAbortSignalPrivateName(),
-            JSFunction::create(vm, this, 0, String(), createAbortSignal, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+            createAbortSignalFunction, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.cloneArrayBufferPrivateName(),
-            JSFunction::create(vm, this, 3, String(), cloneArrayBuffer, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+            cloneArrayBufferFunction, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.structuredCloneForStreamPrivateName(),
-            JSFunction::create(vm, this, 1, String(), structuredCloneForStream, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
-        JSDOMGlobalObject::GlobalPropertyInfo(vm.propertyNames->builtinNames().ArrayBufferPrivateName(), arrayBufferConstructor(), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+            structuredCloneForStreamFunction, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+        JSDOMGlobalObject::GlobalPropertyInfo(vm.propertyNames->builtinNames().ArrayBufferPrivateName(), arrayBufferConstructorValue, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.streamClosedPrivateName(), jsNumber(1), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.streamClosingPrivateName(), jsNumber(2), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.streamErroredPrivateName(), jsNumber(3), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.streamReadablePrivateName(), jsNumber(4), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.streamWaitingPrivateName(), jsNumber(5), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.streamWritablePrivateName(), jsNumber(6), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
-        JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.isAbortSignalPrivateName(), JSFunction::create(vm, this, 1, String(), isAbortSignal, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
-        JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.getInternalReadableStreamPrivateName(), JSFunction::create(vm, this, 1, String(), getInternalReadableStream, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
-        JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.getInternalWritableStreamPrivateName(), JSFunction::create(vm, this, 1, String(), getInternalWritableStream, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
-        JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.getGlobalObjectPrivateName(), JSFunction::create(vm, this, 1, String(), getGlobalObject, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
-        JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.createWritableStreamFromInternalPrivateName(), JSFunction::create(vm, this, 1, String(), createWritableStreamFromInternal, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+        JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.isAbortSignalPrivateName(), isAbortSignalFunction, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+        JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.getInternalReadableStreamPrivateName(), getInternalReadableStreamFunction, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+        JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.getInternalWritableStreamPrivateName(), getInternalWritableStreamFunction, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+        JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.getGlobalObjectPrivateName(), getGlobalObjectFunction, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
+        JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.createWritableStreamFromInternalPrivateName(), createWritableStreamFromInternalFunction, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
     };
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: staticGlobals end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: addStaticGlobals begin");
     addStaticGlobals(staticGlobals, std::size(staticGlobals));
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: addStaticGlobals end");
+    WIN98_TRACE("JSDOMGlobalObject::addBuiltinGlobals: exit");
 }
 
 void JSDOMGlobalObject::finishCreation(VM& vm)
 {
+    WIN98_TRACE("JSDOMGlobalObject::finishCreation(vm): enter");
 #if ENABLE(REMOTE_INSPECTOR)
     bool inspectionPreviouslyFollowedInternalPolicies = JSRemoteInspectorGetInspectionFollowsInternalPolicies();
     JSRemoteInspectorSetInspectionFollowsInternalPolicies(false);
 #endif
 
+    WIN98_TRACE("JSDOMGlobalObject::finishCreation(vm): Base begin");
     Base::finishCreation(vm);
+    WIN98_TRACE("JSDOMGlobalObject::finishCreation(vm): Base end");
     ASSERT(inherits(info()));
 
+    WIN98_TRACE("JSDOMGlobalObject::finishCreation(vm): addBuiltinGlobals begin");
     addBuiltinGlobals(vm);
+    WIN98_TRACE("JSDOMGlobalObject::finishCreation(vm): addBuiltinGlobals end");
 
     RELEASE_ASSERT(classInfo());
 
 #if ENABLE(REMOTE_INSPECTOR)
     JSRemoteInspectorSetInspectionFollowsInternalPolicies(inspectionPreviouslyFollowedInternalPolicies);
 #endif
+    WIN98_TRACE("JSDOMGlobalObject::finishCreation(vm): exit");
 }
 
 void JSDOMGlobalObject::finishCreation(VM& vm, JSObject* thisValue)
 {
+    WIN98_TRACE("JSDOMGlobalObject::finishCreation(vm,this): enter");
 #if ENABLE(REMOTE_INSPECTOR)
     bool inspectionPreviouslyFollowedInternalPolicies = JSRemoteInspectorGetInspectionFollowsInternalPolicies();
     JSRemoteInspectorSetInspectionFollowsInternalPolicies(false);
 #endif
 
+    WIN98_TRACE("JSDOMGlobalObject::finishCreation(vm,this): Base begin");
     Base::finishCreation(vm, thisValue);
+    WIN98_TRACE("JSDOMGlobalObject::finishCreation(vm,this): Base end");
     ASSERT(inherits(info()));
 
+    WIN98_TRACE("JSDOMGlobalObject::finishCreation(vm,this): addBuiltinGlobals begin");
     addBuiltinGlobals(vm);
+    WIN98_TRACE("JSDOMGlobalObject::finishCreation(vm,this): addBuiltinGlobals end");
 
     RELEASE_ASSERT(classInfo());
 
 #if ENABLE(REMOTE_INSPECTOR)
     JSRemoteInspectorSetInspectionFollowsInternalPolicies(inspectionPreviouslyFollowedInternalPolicies);
 #endif
+    WIN98_TRACE("JSDOMGlobalObject::finishCreation(vm,this): exit");
 }
 
 RefPtr<ScriptExecutionContext> JSDOMGlobalObject::protectedScriptExecutionContext() const

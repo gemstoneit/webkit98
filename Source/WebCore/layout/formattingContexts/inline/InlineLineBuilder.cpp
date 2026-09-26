@@ -46,6 +46,7 @@
 namespace WebCore {
 namespace Layout {
 
+
 struct LineContent {
     WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(LineContent);
 
@@ -1924,4 +1925,3 @@ bool LineBuilder::isLastLineWithInlineContent(const LineContent& lineContent, si
 
 }
 }
-

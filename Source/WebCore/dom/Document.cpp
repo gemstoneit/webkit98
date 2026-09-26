@@ -462,6 +462,7 @@
 
 namespace WebCore {
 
+
 WTF_MAKE_TZONE_ALLOCATED_IMPL(Document);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(DocumentParserYieldToken);
 
@@ -3073,7 +3074,8 @@ bool Document::updateStyleIfNeededIgnoringPendingStylesheets()
 auto Document::updateLayoutIgnorePendingStylesheets(OptionSet<LayoutOptions> layoutOptions, const Element* context) -> UpdateLayoutResult
 {
     layoutOptions.add(LayoutOptions::IgnorePendingStylesheets);
-    return updateLayout(layoutOptions, context);
+    auto result = updateLayout(layoutOptions, context);
+    return result;
 }
 
 static RenderElement* rootForSkippedLayout(RenderElement& rootCandidate)
@@ -7364,6 +7366,10 @@ ExceptionOr<void> Document::setCookie(const String& value)
     URL cookieURL = this->cookieURL();
     if (cookieURL.isEmpty())
         return { };
+
+#if defined(BUILDING_WIN98MINI__)
+    return { };
+#endif
 
     invalidateDOMCookieCache();
     if (RefPtr page = this->page())

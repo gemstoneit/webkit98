@@ -47,6 +47,15 @@ public:
     void didFinishLoad();
     void activityStateChanged(OptionSet<ActivityState> oldState, OptionSet<ActivityState> newState);
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniPostPageLoadCPUUsageTimerForDiagnostics() const { return &m_postPageLoadCPUUsageTimer; }
+    const Timer* win98MiniPostBackgroundingCPUUsageTimerForDiagnostics() const { return &m_postBackgroundingCPUUsageTimer; }
+    const Timer* win98MiniPerActivityStateCPUUsageTimerForDiagnostics() const { return &m_perActivityStateCPUUsageTimer; }
+    const Timer* win98MiniPostPageLoadMemoryUsageTimerForDiagnostics() const { return &m_postPageLoadMemoryUsageTimer; }
+    const Timer* win98MiniPostBackgroundingMemoryUsageTimerForDiagnostics() const { return &m_postBackgroundingMemoryUsageTimer; }
+    const Timer* win98MiniProcessMayBecomeInactiveTimerForDiagnostics() const { return &m_processMayBecomeInactiveTimer; }
+#endif
+
 private:
     void measurePostLoadCPUUsage();
     void measurePostBackgroundingCPUUsage();

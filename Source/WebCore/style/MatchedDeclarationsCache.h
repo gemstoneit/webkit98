@@ -69,6 +69,10 @@ public:
     void invalidate();
     void clearEntriesAffectedByViewportUnits();
 
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+    const Timer* win98MiniSweepTimerForDiagnostics() const { return &m_sweepTimer; }
+#endif
+
     void ref() const;
     void deref() const;
 

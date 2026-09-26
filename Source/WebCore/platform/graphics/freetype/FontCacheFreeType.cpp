@@ -30,6 +30,7 @@
 #include "Font.h"
 #include "FontDescription.h"
 #include "FontCacheFreeType.h"
+#include <ft2build.h>
 #include FT_SFNT_NAMES_H
 #include FT_TRUETYPE_IDS_H
 #include "RefPtrCairo.h"

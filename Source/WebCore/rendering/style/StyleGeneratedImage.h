@@ -37,12 +37,16 @@ class CachedResourceLoader;
 class GeneratedImage;
 class Image;
 class RenderElement;
+class TimerBase;
 
 struct ResourceLoaderOptions;
 
 class StyleGeneratedImage : public StyleImage {
 public:
     const SingleThreadWeakHashCountedSet<RenderElement>& clients() const { return m_clients; }
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+    static void win98MiniForEachCachedGeneratedImageTimerForDiagnostics(void (*)(const TimerBase*, void*), void*);
+#endif
 
 protected:
     explicit StyleGeneratedImage(StyleImage::Type, bool fixedSize);

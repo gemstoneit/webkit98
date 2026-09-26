@@ -41,6 +41,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(WidthIterator);
 
 using namespace WTF::Unicode;
 
+
 WidthIterator::WidthIterator(const FontCascade& fontCascade, const TextRun& run, SingleThreadWeakHashSet<const Font>* fallbackFonts, bool accountForGlyphBounds, bool forTextEmphasis)
     : m_fontCascade(fontCascade)
     , m_run(run)

@@ -147,6 +147,11 @@ public:
 
     MatchResultCache& matchResultCache();
 
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+    const Timer* win98MiniPendingUpdateTimerForDiagnostics() const { return &m_pendingUpdateTimer; }
+    const Timer* win98MiniMatchedDeclarationsCacheSweepTimerForDiagnostics() const;
+#endif
+
     const Document& document() const { return m_document; }
     Document& document() { return m_document; }
     const ShadowRoot* shadowRoot() const { return m_shadowRoot; }

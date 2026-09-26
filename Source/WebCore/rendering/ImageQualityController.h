@@ -45,12 +45,18 @@ class ImageQualityController {
     WTF_MAKE_NONCOPYABLE(ImageQualityController);
 public:
     explicit ImageQualityController(const RenderView&);
+    ~ImageQualityController();
 
     static std::optional<InterpolationQuality> interpolationQualityFromStyle(const RenderStyle&);
     static InterpolationQuality chooseInterpolationQualityForSVG(GraphicsContext&, const RenderElement&, Image&);
     InterpolationQuality chooseInterpolationQuality(GraphicsContext&, RenderBoxModelObject*, Image&, const void* layer, const LayoutSize&);
 
     void rendererWillBeDestroyed(RenderBoxModelObject& renderer) { removeObject(&renderer); }
+
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+    const TimerBase* win98MiniTimerForDiagnostics() const { return m_timer.win98MiniTimerBaseForDiagnostics(); }
+    static void win98MiniForEachTimerForDiagnostics(void (*)(const TimerBase*, void*), void*);
+#endif
 
 private:
     using LayerSizeMap = HashMap<const void*, LayoutSize>;

@@ -43,6 +43,23 @@ public:
     virtual bool hasScriptsWaitingForStylesheets() const { return false; }
 
     void executeScriptsWaitingForStylesheetsSoon();
+#if defined(BUILDING_WIN98MINI__)
+    void executeScriptsWaitingForStylesheetsNowForWin98Mini() { executeScriptsWaitingForStylesheets(); }
+    void fireScriptsWaitingForStylesheetsExecutionTimerNowForWin98Mini()
+    {
+        if (isDetached())
+            return;
+        if (!m_scriptsWaitingForStylesheetsExecutionTimer.isActive())
+            return;
+
+        m_scriptsWaitingForStylesheetsExecutionTimer.stop();
+        scriptsWaitingForStylesheetsExecutionTimerFired();
+    }
+    bool scriptsWaitingForStylesheetsExecutionTimerActiveForWin98Mini() const { return m_scriptsWaitingForStylesheetsExecutionTimer.isActive(); }
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniScriptsWaitingForStylesheetsExecutionTimerForDiagnostics() const { return &m_scriptsWaitingForStylesheetsExecutionTimer; }
+#endif
+#endif
 
     // Returns true if the parser didn't yield or pause or synchronously execute a script,
     // so calls to FrameConsoleClient should be associated with the parser's text position.

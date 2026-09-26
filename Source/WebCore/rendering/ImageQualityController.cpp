@@ -44,11 +44,64 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(ImageQualityController);
 static const double cInterpolationCutoff = 800. * 800.;
 static const Seconds lowQualityTimeThreshold { 500_ms };
 
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+static const TimerBase* s_win98MiniImageQualityControllerTimers[32];
+static unsigned s_win98MiniImageQualityControllerTimerCount;
+
+static void registerWin98MiniImageQualityControllerTimer(const TimerBase* timer)
+{
+    if (!timer)
+        return;
+    for (unsigned i = 0; i < s_win98MiniImageQualityControllerTimerCount; ++i) {
+        if (s_win98MiniImageQualityControllerTimers[i] == timer)
+            return;
+    }
+    if (s_win98MiniImageQualityControllerTimerCount >= sizeof(s_win98MiniImageQualityControllerTimers) / sizeof(s_win98MiniImageQualityControllerTimers[0]))
+        return;
+    s_win98MiniImageQualityControllerTimers[s_win98MiniImageQualityControllerTimerCount++] = timer;
+}
+
+static void unregisterWin98MiniImageQualityControllerTimer(const TimerBase* timer)
+{
+    if (!timer)
+        return;
+    for (unsigned i = 0; i < s_win98MiniImageQualityControllerTimerCount; ++i) {
+        if (s_win98MiniImageQualityControllerTimers[i] != timer)
+            continue;
+        s_win98MiniImageQualityControllerTimers[i] = s_win98MiniImageQualityControllerTimers[--s_win98MiniImageQualityControllerTimerCount];
+        s_win98MiniImageQualityControllerTimers[s_win98MiniImageQualityControllerTimerCount] = nullptr;
+        return;
+    }
+}
+#endif
+
 ImageQualityController::ImageQualityController(const RenderView& renderView)
     : m_renderView(renderView)
     , m_timer(*this, &ImageQualityController::highQualityRepaintTimerFired, lowQualityTimeThreshold)
 {
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+    registerWin98MiniImageQualityControllerTimer(m_timer.win98MiniTimerBaseForDiagnostics());
+#endif
 }
+
+ImageQualityController::~ImageQualityController()
+{
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+    unregisterWin98MiniImageQualityControllerTimer(m_timer.win98MiniTimerBaseForDiagnostics());
+#endif
+}
+
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+void ImageQualityController::win98MiniForEachTimerForDiagnostics(void (*callback)(const TimerBase*, void*), void* context)
+{
+    if (!callback)
+        return;
+    for (unsigned i = 0; i < s_win98MiniImageQualityControllerTimerCount; ++i) {
+        if (auto* timer = s_win98MiniImageQualityControllerTimers[i])
+            callback(timer, context);
+    }
+}
+#endif
 
 void ImageQualityController::removeLayer(RenderBoxModelObject* object, LayerSizeMap* innerMap, const void* layer)
 {

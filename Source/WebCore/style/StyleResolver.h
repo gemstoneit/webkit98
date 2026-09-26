@@ -166,6 +166,10 @@ public:
     void invalidateMatchedDeclarationsCache();
     void clearCachedDeclarationsAffectedByViewportUnits();
 
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+    const MatchedDeclarationsCache& win98MiniMatchedDeclarationsCacheForDiagnostics() const { return m_matchedDeclarationsCache; }
+#endif
+
     InspectorCSSOMWrappers& inspectorCSSOMWrappers() { return m_inspectorCSSOMWrappers; }
 
     bool isSharedBetweenShadowTrees() const { return m_isSharedBetweenShadowTrees; }

@@ -141,6 +141,11 @@ public:
     WEBCORE_EXPORT CheckedRef<RenderLayerCompositor> checkedCompositor();
     WEBCORE_EXPORT bool usesCompositing() const;
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const ImageQualityController* win98MiniImageQualityControllerForDiagnostics() const { return m_imageQualityController.get(); }
+    const RenderLayerCompositor* win98MiniCompositorForDiagnostics() const { return m_compositor.get(); }
+#endif
+
     WEBCORE_EXPORT IntRect unscaledDocumentRect() const;
     LayoutRect unextendedBackgroundRect() const;
     LayoutRect backgroundRect() const;

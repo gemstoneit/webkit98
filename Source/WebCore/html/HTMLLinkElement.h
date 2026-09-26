@@ -89,6 +89,10 @@ public:
     void dispatchPendingEvent(LinkEventSender*, const AtomString& eventType);
     static void dispatchPendingLoadEvents(Page*);
 
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+    static const Timer* win98MiniLoadEventSenderTimerForDiagnostics();
+#endif
+
     WEBCORE_EXPORT DOMTokenList& relList();
     WEBCORE_EXPORT DOMTokenList& blocking();
 

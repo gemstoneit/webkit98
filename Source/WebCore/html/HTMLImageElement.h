@@ -86,6 +86,9 @@ public:
     const AtomString& altText() const;
 
     WEBCORE_EXPORT CachedImage* cachedImage() const;
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const HTMLImageLoader* win98MiniImageLoaderForDiagnostics() const { return m_imageLoader.get(); }
+#endif
 
     void setLoadManually(bool);
 

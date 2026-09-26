@@ -86,15 +86,28 @@ protected:
 
     JSEventListener(JSC::JSObject* function, JSC::JSObject* wrapper, bool isAttribute, CreatedFromMarkup, DOMWrapperWorld&);
     void handleEvent(ScriptExecutionContext&, Event&) override;
-    void setWrapperWhenInitializingJSFunction(JSC::VM&, JSC::JSObject* wrapper) const { m_wrapper = JSC::Weak<JSC::JSObject>(wrapper); }
+    void setWrapperWhenInitializingJSFunction(JSC::VM& vm, JSC::JSObject* wrapper) const
+    {
+#if defined(BUILDING_WIN98MINI__)
+        m_wrapper.set(vm, wrapper);
+#else
+        UNUSED_PARAM(vm);
+        m_wrapper = JSC::Weak<JSC::JSObject>(wrapper);
+#endif
+    }
 
 private:
     bool m_isAttribute : 1;
     bool m_wasCreatedFromMarkup : 1;
 
     mutable bool m_isInitialized : 1;
+#if defined(BUILDING_WIN98MINI__)
+    mutable JSC::Strong<JSC::JSObject> m_jsFunction;
+    mutable JSC::Strong<JSC::JSObject> m_wrapper;
+#else
     mutable JSC::Weak<JSC::JSObject> m_jsFunction;
     mutable JSC::Weak<JSC::JSObject> m_wrapper;
+#endif
 
     RefPtr<DOMWrapperWorld> m_isolatedWorld;
 };
@@ -149,7 +162,11 @@ inline JSC::JSObject* JSEventListener::ensureJSFunction(ScriptExecutionContext& 
         ASSERT(!m_jsFunction);
         auto* function = initializeJSFunction(scriptExecutionContext);
         if (function) {
+#if defined(BUILDING_WIN98MINI__)
+            m_jsFunction.set(vm, function);
+#else
             m_jsFunction = JSC::Weak<JSC::JSObject>(function);
+#endif
             // When JSFunction is initialized, initializeJSFunction must ensure that m_wrapper should be initialized too.
             ASSERT(m_wrapper);
             vm.writeBarrier(m_wrapper.get(), function);
@@ -157,7 +174,7 @@ inline JSC::JSObject* JSEventListener::ensureJSFunction(ScriptExecutionContext& 
         }
     }
 
-    // m_wrapper and m_jsFunction are Weak<>. nullptr of these fields do not mean that this event-listener is not initialized yet.
+    // m_wrapper and m_jsFunction are nullable handles. nullptr of these fields do not mean that this event-listener is not initialized yet.
     // If this is initialized once, m_isInitialized should be true, and then m_wrapper and m_jsFunction must be alive. m_wrapper's
     // liveness should be kept correctly by using ActiveDOMObject, output-constraints, etc. And m_jsFunction must be alive if m_wrapper
     // is alive since JSEventListener marks m_jsFunction in JSEventListener::visitJSFunction if m_wrapper is alive.

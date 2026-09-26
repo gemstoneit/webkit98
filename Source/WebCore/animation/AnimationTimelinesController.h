@@ -80,6 +80,10 @@ public:
 
     WEBCORE_EXPORT Vector<GraphicsLayer::AcceleratedAnimationForTesting> acceleratedAnimationsForElement(const Element&) const;
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniCachedCurrentTimeClearanceTimerForDiagnostics() const { return &m_cachedCurrentTimeClearanceTimer; }
+#endif
+
 private:
 
     ReducedResolutionSeconds liveCurrentTime() const;

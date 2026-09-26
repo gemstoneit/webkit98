@@ -78,6 +78,10 @@ public:
 
     bool hasQueuedNavigation() const;
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniTimerForDiagnostics() const { return &m_timer; }
+#endif
+
 private:
     bool shouldScheduleNavigation() const;
     bool shouldScheduleNavigation(const URL&) const;

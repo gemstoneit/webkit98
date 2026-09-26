@@ -138,6 +138,8 @@ public:
     WEBCORE_EXPORT RefPtr<Page> protectedPage() const;
     WeakPtr<Page> page() const { return m_page; }
 
+    const Timer* win98MiniImageLoadingSettingsTimerForDiagnostics() const { return &m_setImageLoadingSettingsTimer; }
+
 protected:
     explicit SettingsBase(Page*);
     virtual ~SettingsBase();

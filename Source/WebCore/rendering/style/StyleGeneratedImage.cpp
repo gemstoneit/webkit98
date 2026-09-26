@@ -29,11 +29,43 @@
 #include "RenderElement.h"
 #include "RenderObjectInlines.h"
 #include "StyleResolver.h"
+#include "Timer.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
 static const Seconds timeToKeepCachedGeneratedImages { 3_s };
+
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+static const TimerBase* s_win98MiniCachedGeneratedImageTimers[128];
+static unsigned s_win98MiniCachedGeneratedImageTimerCount;
+
+static void registerWin98MiniCachedGeneratedImageTimer(const TimerBase* timer)
+{
+    if (!timer)
+        return;
+    for (unsigned i = 0; i < s_win98MiniCachedGeneratedImageTimerCount; ++i) {
+        if (s_win98MiniCachedGeneratedImageTimers[i] == timer)
+            return;
+    }
+    if (s_win98MiniCachedGeneratedImageTimerCount >= sizeof(s_win98MiniCachedGeneratedImageTimers) / sizeof(s_win98MiniCachedGeneratedImageTimers[0]))
+        return;
+    s_win98MiniCachedGeneratedImageTimers[s_win98MiniCachedGeneratedImageTimerCount++] = timer;
+}
+
+static void unregisterWin98MiniCachedGeneratedImageTimer(const TimerBase* timer)
+{
+    if (!timer)
+        return;
+    for (unsigned i = 0; i < s_win98MiniCachedGeneratedImageTimerCount; ++i) {
+        if (s_win98MiniCachedGeneratedImageTimers[i] != timer)
+            continue;
+        s_win98MiniCachedGeneratedImageTimers[i] = s_win98MiniCachedGeneratedImageTimers[--s_win98MiniCachedGeneratedImageTimerCount];
+        s_win98MiniCachedGeneratedImageTimers[s_win98MiniCachedGeneratedImageTimerCount] = nullptr;
+        return;
+    }
+}
+#endif
 
 // MARK: - CachedGeneratedImage
 
@@ -41,6 +73,7 @@ class StyleGeneratedImage::CachedGeneratedImage {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(CachedGeneratedImage);
 public:
     CachedGeneratedImage(StyleGeneratedImage&, FloatSize, GeneratedImage&);
+    ~CachedGeneratedImage();
     GeneratedImage& image() const { return m_image; }
     void puntEvictionTimer() { m_evictionTimer.restart(); }
 
@@ -60,6 +93,16 @@ inline StyleGeneratedImage::CachedGeneratedImage::CachedGeneratedImage(StyleGene
     , m_evictionTimer(*this, &StyleGeneratedImage::CachedGeneratedImage::evictionTimerFired, timeToKeepCachedGeneratedImages)
 {
     m_evictionTimer.restart();
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+    registerWin98MiniCachedGeneratedImageTimer(m_evictionTimer.win98MiniTimerBaseForDiagnostics());
+#endif
+}
+
+StyleGeneratedImage::CachedGeneratedImage::~CachedGeneratedImage()
+{
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+    unregisterWin98MiniCachedGeneratedImageTimer(m_evictionTimer.win98MiniTimerBaseForDiagnostics());
+#endif
 }
 
 void StyleGeneratedImage::CachedGeneratedImage::evictionTimerFired()
@@ -77,6 +120,18 @@ StyleGeneratedImage::StyleGeneratedImage(StyleImage::Type type, bool fixedSize)
 }
 
 StyleGeneratedImage::~StyleGeneratedImage() = default;
+
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+void StyleGeneratedImage::win98MiniForEachCachedGeneratedImageTimerForDiagnostics(void (*callback)(const TimerBase*, void*), void* context)
+{
+    if (!callback)
+        return;
+    for (unsigned i = 0; i < s_win98MiniCachedGeneratedImageTimerCount; ++i) {
+        if (auto* timer = s_win98MiniCachedGeneratedImageTimers[i])
+            callback(timer, context);
+    }
+}
+#endif
 
 GeneratedImage* StyleGeneratedImage::cachedImageForSize(FloatSize size)
 {

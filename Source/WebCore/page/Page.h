@@ -549,6 +549,20 @@ public:
     CheckedRef<ProgressTracker> checkedProgress();
     CheckedRef<const ProgressTracker> checkedProgress() const;
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniDOMTimerAlignmentIntervalIncreaseTimerForDiagnostics() const { return &m_domTimerAlignmentIntervalIncreaseTimer; }
+    const Timer* win98MiniPlaybackControlsManagerUpdateTimerForDiagnostics() const
+    {
+#if ENABLE(VIDEO)
+        return &m_playbackControlsManagerUpdateTimer;
+#else
+        return nullptr;
+#endif
+    }
+    const Timer* win98MiniActiveNowPlayingSessionUpdateTimerForDiagnostics() const { return &m_activeNowPlayingSessionUpdateTimer; }
+    const RenderingUpdateScheduler* win98MiniExistingRenderingUpdateSchedulerForDiagnostics() const { return m_renderingUpdateScheduler.get(); }
+#endif
+
     WEBCORE_EXPORT void applyWindowFeatures(const WindowFeatures&);
 
     void progressEstimateChanged(LocalFrame&) const;

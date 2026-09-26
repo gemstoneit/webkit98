@@ -390,6 +390,10 @@ bool TextUtil::mayBreakInBetween(String previousContent, const RenderStyle& prev
     auto previousContentLength = previousContent.length();
     // FIXME: We should look into the entire uncommitted content for more text context.
     char16_t lastCharacter = previousContentLength ? previousContent[previousContentLength - 1] : 0;
+#if defined(BUILDING_WIN98MINI__)
+    if (lastCharacter == 0x203A)
+        return true;
+#endif
     if (lastCharacter == softHyphen && previousContentStyle.hyphens() == Hyphens::None)
         return false;
     char16_t secondToLastCharacter = previousContentLength > 1 ? previousContent[previousContentLength - 2] : 0;
@@ -402,6 +406,12 @@ bool TextUtil::mayBreakInBetween(String previousContent, const RenderStyle& prev
 
 unsigned TextUtil::findNextBreakablePosition(CachedLineBreakIteratorFactory& lineBreakIteratorFactory, unsigned startPosition, const RenderStyle& style)
 {
+#if defined(BUILDING_WIN98MINI__)
+    auto text = lineBreakIteratorFactory.stringView();
+    if (startPosition < text.length() && text[startPosition] == 0x203A)
+        return startPosition + 1;
+#endif
+
     auto wordBreak = style.wordBreak();
     auto breakNBSP = style.autoWrap() && style.nbspMode() == NBSPMode::Space;
 

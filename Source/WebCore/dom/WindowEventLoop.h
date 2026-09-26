@@ -66,6 +66,11 @@ public:
 
     WEBCORE_EXPORT static void breakToAllowRenderingUpdate();
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniTaskTimerForDiagnostics() const { return &m_timer; }
+    const Timer* win98MiniIdleTimerForDiagnostics() const { return &m_idleTimer; }
+#endif
+
 private:
     static Ref<WindowEventLoop> create(const String&);
     WindowEventLoop(const String&);

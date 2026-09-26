@@ -98,8 +98,13 @@ String CookieJar::cookies(Document& document, const URL& url) const
     std::pair<String, bool> result;
     if (CheckedPtr session = m_storageSessionProvider->storageSession())
         result = session->cookiesForDOM(document.firstPartyForCookies(), sameSiteInfo(document, IsForDOMCookieAccess::Yes), url, frameID, pageID, includeSecureCookies, ApplyTrackingPrevention::Yes, shouldRelaxThirdPartyCookieBlocking(document), IsKnownCrossSiteTracker::No);
+#if defined(BUILDING_WIN98MINI__)
+    else
+        return { };
+#else
     else
         ASSERT_NOT_REACHED();
+#endif
 
     if (result.second)
         document.setSecureCookiesAccessed();
@@ -128,8 +133,13 @@ void CookieJar::setCookies(Document& document, const URL& url, const String& coo
 
     if (CheckedPtr session = m_storageSessionProvider->storageSession())
         session->setCookiesFromDOM(document.firstPartyForCookies(), sameSiteInfo(document, IsForDOMCookieAccess::Yes), url, frameID, pageID, ApplyTrackingPrevention::Yes, RequiresScriptTrackingPrivacy::No, cookieString, shouldRelaxThirdPartyCookieBlocking(document), IsKnownCrossSiteTracker::No);
+#if defined(BUILDING_WIN98MINI__)
+    else
+        return;
+#else
     else
         ASSERT_NOT_REACHED();
+#endif
 }
 
 bool CookieJar::cookiesEnabled(Document& document)
@@ -146,8 +156,12 @@ bool CookieJar::cookiesEnabled(Document& document)
     if (CheckedPtr session = m_storageSessionProvider->storageSession())
         return session->cookiesEnabled(document.firstPartyForCookies(), cookieURL, frameID, pageID, shouldRelaxThirdPartyCookieBlocking(document), IsKnownCrossSiteTracker::No);
 
+#if defined(BUILDING_WIN98MINI__)
+    return false;
+#else
     ASSERT_NOT_REACHED();
     return false;
+#endif
 }
 
 void CookieJar::remoteCookiesEnabled(const Document&, CompletionHandler<void(bool)>&& completionHandler) const

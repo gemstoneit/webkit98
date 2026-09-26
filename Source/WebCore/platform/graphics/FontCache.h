@@ -208,6 +208,10 @@ public:
 
     bool useBackslashAsYenSignForFamily(const AtomString& family);
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniPurgeTimerForDiagnostics() const { return &m_purgeTimer; }
+#endif
+
 #if USE(FREETYPE)
     static bool configurePatternForFontDescription(FcPattern*, const FontDescription&);
 #endif

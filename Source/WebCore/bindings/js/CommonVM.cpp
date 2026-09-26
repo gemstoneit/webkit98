@@ -45,19 +45,29 @@
 #include "WebCoreThreadInternal.h"
 #endif
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+
 namespace WebCore {
 
 JSC::VM* g_commonVMOrNull;
 
 JSC::VM& commonVMSlow()
 {
+    WIN98_TRACE("commonVMSlow: enter");
     ASSERT(isMainThread());
     ASSERT(!g_commonVMOrNull);
 
     // FIXME: Remove this call to ScriptController::initializeMainThread(). The
     // main thread should have been initialized by a WebKit entrypoint already.
     // Also, initializeMainThread() does nothing on iOS.
+    WIN98_TRACE("commonVMSlow: initializeMainThread begin");
     ScriptController::initializeMainThread();
+    WIN98_TRACE("commonVMSlow: initializeMainThread end");
 
 #if PLATFORM(IOS_FAMILY)
     RunLoop* runLoop = RunLoop::webIfExists();
@@ -65,16 +75,31 @@ JSC::VM& commonVMSlow()
     RunLoop* runLoop = nullptr;
 #endif
 
-    auto& vm = JSC::VM::create(JSC::HeapType::Large, runLoop).leakRef();
+    WIN98_TRACE("commonVMSlow: VM create begin");
+    auto vmRef = JSC::VM::create(JSC::HeapType::Large, runLoop);
+    WIN98_TRACE("commonVMSlow: VM create end");
+    auto& vm = vmRef.leakRef();
+    WIN98_TRACE("commonVMSlow: VM leakRef end");
 #if !PLATFORM(IOS_FAMILY)
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    WIN98_TRACE("commonVMSlow: clear activity callbacks begin");
+    vm.heap.setFullActivityCallback(nullptr);
+    vm.heap.setEdenActivityCallback(nullptr);
+    WIN98_TRACE("commonVMSlow: clear activity callbacks end");
+#else
     vm.heap.setFullActivityCallback(OpportunisticTaskScheduler::FullGCActivityCallback::create(vm.heap));
     vm.heap.setEdenActivityCallback(OpportunisticTaskScheduler::EdenGCActivityCallback::create(vm.heap));
     vm.heap.disableStopIfNecessaryTimer(); // Because opportunistic task scheduler and GC timer exists, we do not need StopIfNecessaryTimer.
 #endif
+#endif
 
+    WIN98_TRACE("commonVMSlow: assign global VM begin");
     g_commonVMOrNull = &vm;
+    WIN98_TRACE("commonVMSlow: assign global VM end");
 
+    WIN98_TRACE("commonVMSlow: heap acquireAccess begin");
     vm.heap.acquireAccess(); // At any time, we may do things that affect the GC.
+    WIN98_TRACE("commonVMSlow: heap acquireAccess end");
 
 #if PLATFORM(IOS_FAMILY)
     if (WebThreadIsEnabled())
@@ -82,8 +107,11 @@ JSC::VM& commonVMSlow()
     vm.heap.machineThreads().addCurrentThread();
 #endif
 
+    WIN98_TRACE("commonVMSlow: initNormalWorld begin");
     JSVMClientData::initNormalWorld(&vm, WorkerThreadType::Main);
+    WIN98_TRACE("commonVMSlow: initNormalWorld end");
 
+    WIN98_TRACE("commonVMSlow: exit");
     return vm;
 }
 
@@ -107,4 +135,3 @@ void addImpureProperty(const AtomString& propertyName)
 }
 
 } // namespace WebCore
-

@@ -1353,6 +1353,28 @@ public:
     WindowEventLoop& windowEventLoop();
     Ref<WindowEventLoop> protectedWindowEventLoop();
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniStyleRecalcTimerForDiagnostics() const { return &m_styleRecalcTimer; }
+    const Timer* win98MiniApplyPendingXSLTransformsTimerForDiagnostics() const
+    {
+#if ENABLE(XSLT)
+        return &m_applyPendingXSLTransformsTimer;
+#else
+        return nullptr;
+#endif
+    }
+    const Timer* win98MiniIntersectionInitialUpdateTimerForDiagnostics() const { return &m_intersectionObserversInitialUpdateTimer; }
+    const Timer* win98MiniLoadEventDelayTimerForDiagnostics() const { return &m_loadEventDelayTimer; }
+    const Timer* win98MiniPendingTasksTimerForDiagnostics() const { return &m_pendingTasksTimer; }
+    const Timer* win98MiniVisualUpdatesSuppressionTimerForDiagnostics() const { return &m_visualUpdatesSuppressionTimer; }
+    const Timer* win98MiniSharedObjectPoolClearTimerForDiagnostics() const { return &m_sharedObjectPoolClearTimer; }
+    const Timer* win98MiniDidAssociateFormControlsTimerForDiagnostics() const { return &m_didAssociateFormControlsTimer; }
+    const Timer* win98MiniCookieCacheExpiryTimerForDiagnostics() const { return &m_cookieCacheExpiryTimer; }
+    const CachedResourceLoader* win98MiniCachedResourceLoaderForDiagnostics() const { return m_cachedResourceLoader.get(); }
+    const ScriptRunner* win98MiniScriptRunnerForDiagnostics() const { return m_scriptRunner.get(); }
+    const DocumentFontLoader* win98MiniFontLoaderForDiagnostics() const { return m_fontLoader.get(); }
+#endif
+
     ScriptedAnimationController* scriptedAnimationController() { return m_scriptedAnimationController.get(); }
     void suspendScriptedAnimationControllerCallbacks();
     void resumeScriptedAnimationControllerCallbacks();

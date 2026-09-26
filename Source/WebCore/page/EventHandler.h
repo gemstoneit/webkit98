@@ -25,6 +25,9 @@
 
 #pragma once
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+#include <WebCore/AutoscrollController.h>
+#endif
 #include <WebCore/Cursor.h>
 #include <WebCore/DragActions.h>
 #include <WebCore/FocusDirection.h>
@@ -148,6 +151,45 @@ class EventHandler final : public CanMakeCheckedPtr<EventHandler> {
 public:
     explicit EventHandler(LocalFrame&);
     ~EventHandler();
+
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniHoverTimerForDiagnostics() const { return &m_hoverTimer; }
+    const Timer* win98MiniMouseEventTargetUpdateTimerForDiagnostics() const { return &m_mouseEventTargetUpdateTimer; }
+    const Timer* win98MiniMouseEventTargetFinalUpdateTimerForDiagnostics() const { return &m_mouseEventTargetFinalUpdateTimer; }
+    const TimerBase* win98MiniTextRecognitionHoverTimerForDiagnostics() const
+    {
+#if ENABLE(IMAGE_ANALYSIS)
+        return m_textRecognitionHoverTimer.win98MiniTimerBaseForDiagnostics();
+#else
+        return nullptr;
+#endif
+    }
+    const Timer* win98MiniAutoscrollTimerForDiagnostics() const { return m_autoscrollController->win98MiniAutoscrollTimerForDiagnostics(); }
+    const Timer* win98MiniFakeMouseMoveEventTimerForDiagnostics() const
+    {
+#if !ENABLE(IOS_TOUCH_EVENTS)
+        return &m_fakeMouseMoveEventTimer;
+#else
+        return nullptr;
+#endif
+    }
+    const Timer* win98MiniAutoHideCursorTimerForDiagnostics() const
+    {
+#if ENABLE(CURSOR_VISIBILITY)
+        return &m_autoHideCursorTimer;
+#else
+        return nullptr;
+#endif
+    }
+    const Timer* win98MiniHoldEscKeyEventTimerForDiagnostics() const
+    {
+#if ENABLE(FULLSCREEN_API)
+        return &m_holdEscKeyEventTimer;
+#else
+        return nullptr;
+#endif
+    }
+#endif
 
     void clear();
     void nodeWillBeRemoved(Node&);

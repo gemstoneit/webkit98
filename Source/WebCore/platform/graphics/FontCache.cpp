@@ -148,6 +148,20 @@ FontCache::FontCache()
 
 FontCache::~FontCache() = default;
 
+#if defined(BUILDING_WIN98MINI__)
+static bool gWin98MiniSuppressFontCachePurgeTimerForDiagnostics;
+
+void win98MiniSetSuppressFontCachePurgeTimerForDiagnostics(bool suppress)
+{
+    gWin98MiniSuppressFontCachePurgeTimerForDiagnostics = suppress;
+}
+
+bool win98MiniSuppressesFontCachePurgeTimerForDiagnostics()
+{
+    return gWin98MiniSuppressFontCachePurgeTimerForDiagnostics;
+}
+#endif
+
 ASCIILiteral FontCache::alternateFamilyName(const String& familyName)
 {
     if (auto platformSpecificAlternate = platformAlternateFamilyName(familyName))
@@ -245,8 +259,13 @@ const unsigned cTargetUnderMemoryPressureInactiveFontData = 30;
 
 RefPtr<Font> FontCache::fontForFamily(const FontDescription& fontDescription, const String& family, const FontCreationContext& fontCreationContext, OptionSet<FontLookupOptions> options)
 {
+#if defined(BUILDING_WIN98MINI__)
+    if (!gWin98MiniSuppressFontCachePurgeTimerForDiagnostics && !m_purgeTimer.isActive())
+        m_purgeTimer.startOneShot(0_s);
+#else
     if (!m_purgeTimer.isActive())
         m_purgeTimer.startOneShot(0_s);
+#endif
 
     if (auto* platformData = cachedFontPlatformData(fontDescription, family, fontCreationContext, options))
         return fontForPlatformData(*platformData);

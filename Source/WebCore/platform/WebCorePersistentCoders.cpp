@@ -535,7 +535,7 @@ std::optional<WebCore::CertificateInfo> Coder<WebCore::CertificateInfo>::decodeF
     return certificateInfo;
 }
 
-#elif PLATFORM(WIN)
+#elif PLATFORM(WIN) || defined(BUILDING_WIN98MINI__)
 
 void Coder<WebCore::CertificateInfo>::encodeForPersistence(Encoder&, const WebCore::CertificateInfo&)
 {

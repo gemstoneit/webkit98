@@ -136,6 +136,20 @@ bool Image::supportsType(const String& type)
     return MIMETypeRegistry::isSupportedImageMIMEType(type);
 }
 
+#if defined(BUILDING_WIN98MINI__)
+static bool gWin98MiniSuppressAsynchronousAnimationStartForDiagnostics;
+
+void win98MiniSetSuppressAsynchronousImageAnimationStartForDiagnostics(bool suppress)
+{
+    gWin98MiniSuppressAsynchronousAnimationStartForDiagnostics = suppress;
+}
+
+bool win98MiniSuppressesAsynchronousImageAnimationStartForDiagnostics()
+{
+    return gWin98MiniSuppressAsynchronousAnimationStartForDiagnostics;
+}
+#endif
+
 void Image::subresourcesAreFinished(Document*, CompletionHandler<void()>&& completionHandler)
 {
     completionHandler();
@@ -409,6 +423,10 @@ FloatSize Image::sourceSize(ImageOrientation orientation) const
 
 void Image::startAnimationAsynchronously()
 {
+#if defined(BUILDING_WIN98MINI__)
+    if (gWin98MiniSuppressAsynchronousAnimationStartForDiagnostics)
+        return;
+#endif
     if (!m_animationStartTimer)
         m_animationStartTimer = makeUnique<Timer>(*this, &Image::startAnimation);
     if (m_animationStartTimer->isActive())

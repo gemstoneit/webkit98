@@ -2292,7 +2292,12 @@ bool Quirks::needsInstagramResizingReelsQuirk(const Element& element, const Rend
     if (!parentStyle.width().isPercent())
         return false;
 
+#if ENABLE(VIDEO)
     return descendantsOfType<HTMLVideoElement>(element).first();
+#else
+    UNUSED_PARAM(element);
+    return false;
+#endif
 }
 
 bool Quirks::needsWebKitMediaTextTrackDisplayQuirk() const

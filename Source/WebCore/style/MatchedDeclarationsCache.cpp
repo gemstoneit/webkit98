@@ -55,6 +55,20 @@ MatchedDeclarationsCache::MatchedDeclarationsCache(const Resolver& owner)
 
 MatchedDeclarationsCache::~MatchedDeclarationsCache() = default;
 
+#if defined(BUILDING_WIN98MINI__)
+static bool gWin98MiniSuppressMatchedDeclarationsCacheSweepTimerForDiagnostics;
+
+void win98MiniSetSuppressMatchedDeclarationsCacheSweepTimerForDiagnostics(bool suppress)
+{
+    gWin98MiniSuppressMatchedDeclarationsCacheSweepTimerForDiagnostics = suppress;
+}
+
+bool win98MiniSuppressesMatchedDeclarationsCacheSweepTimerForDiagnostics()
+{
+    return gWin98MiniSuppressMatchedDeclarationsCacheSweepTimerForDiagnostics;
+}
+#endif
+
 void MatchedDeclarationsCache::ref() const
 {
     m_owner->ref();
@@ -165,7 +179,11 @@ std::optional<MatchedDeclarationsCache::Result> MatchedDeclarationsCache::find(u
 void MatchedDeclarationsCache::add(const RenderStyle& style, const RenderStyle& parentStyle, unsigned hash, const MatchResult& matchResult)
 {
     constexpr unsigned additionsBetweenSweeps = 100;
+#if defined(BUILDING_WIN98MINI__)
+    if (++m_additionsSinceLastSweep >= additionsBetweenSweeps && !gWin98MiniSuppressMatchedDeclarationsCacheSweepTimerForDiagnostics && !m_sweepTimer.isActive()) {
+#else
     if (++m_additionsSinceLastSweep >= additionsBetweenSweeps && !m_sweepTimer.isActive()) {
+#endif
         constexpr auto sweepDelay = 1_min;
         m_sweepTimer.startOneShot(sweepDelay);
     }

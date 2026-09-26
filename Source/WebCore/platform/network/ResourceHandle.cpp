@@ -309,7 +309,7 @@ void ResourceHandle::setDefersLoading(bool defers)
     platformSetDefersLoading(defers);
 }
 
-#if USE(SOUP) || USE(CURL)
+#if USE(SOUP) || USE(CURL) || defined(BUILDING_WIN98MINI__)
 ResourceHandleInternal::~ResourceHandleInternal() = default;
 
 ResourceHandle::~ResourceHandle()

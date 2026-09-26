@@ -52,6 +52,10 @@ public:
 
     void windowScreenDidChange(PlatformDisplayID);
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniRefreshTimerForDiagnostics() const { return m_refreshTimer.get(); }
+#endif
+
 private:
     bool scheduleAnimation();
 

@@ -62,6 +62,7 @@
 namespace WebCore {
 namespace Layout {
 
+
 WTF_MAKE_TZONE_ALLOCATED_IMPL(InlineContentCache);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(InlineFormattingContext);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(InlineLayoutResult);
@@ -617,4 +618,3 @@ void InlineFormattingContext::rebuildInlineItemListIfNeeded(InlineDamage* lineDa
 
 }
 }
-

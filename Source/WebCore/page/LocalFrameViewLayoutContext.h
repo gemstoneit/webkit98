@@ -102,6 +102,11 @@ public:
     bool isInRenderTreeLayout() const { return layoutPhase() == LayoutPhase::InRenderTreeLayout; }
     bool inPaintableState() const { return layoutPhase() != LayoutPhase::InRenderTreeLayout && layoutPhase() != LayoutPhase::InViewSizeAdjust && (layoutPhase() != LayoutPhase::InPostLayout || inAsynchronousTasks()); }
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniLayoutTimerForDiagnostics() const { return &m_layoutTimer; }
+    const Timer* win98MiniPostLayoutTaskTimerForDiagnostics() const { return &m_postLayoutTaskTimer; }
+#endif
+
     bool isSkippedContentForLayout(const RenderElement&) const;
     bool isSkippedContentRootForLayout(const RenderBox&) const;
 
@@ -195,6 +200,9 @@ private:
     void runPostLayoutTasks();
     void runOrScheduleAsynchronousTasks(bool canDeferUpdateLayerPositions);
     bool inAsynchronousTasks() const { return m_inAsynchronousTasks; }
+#if defined(BUILDING_WIN98MINI__)
+    void win98MiniTraceLayoutState(const char*) const;
+#endif
 
     void setSubtreeLayoutRoot(RenderElement&);
 

@@ -185,6 +185,11 @@ public:
 private:
     explicit CachedResourceLoader(DocumentLoader*);
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniUnusedPreloadsTimerForDiagnostics() const { return &m_unusedPreloadsTimer; }
+    const Timer* win98MiniGarbageCollectDocumentResourcesTimerForDiagnostics() const { return &m_garbageCollectDocumentResourcesTimer; }
+#endif
+
     enum class ForPreload : bool { No, Yes };
 
     ResourceErrorOr<CachedResourceHandle<CachedResource>> requestResource(CachedResource::Type, CachedResourceRequest&&, ForPreload = ForPreload::No, ImageLoading = ImageLoading::Immediate);

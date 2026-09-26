@@ -603,6 +603,12 @@ Expected<Ref<NativeImage>, DecodingStatus> BitmapImageSource::nativeImageAtIndex
 
 Expected<Ref<NativeImage>, DecodingStatus> BitmapImageSource::nativeImageAtIndexForDrawing(unsigned index, SubsamplingLevel subsamplingLevel, const DecodingOptions& options)
 {
+#if defined(BUILDING_WIN98MINI__)
+    if (options.decodingMode() == DecodingMode::Asynchronous && !isAnimated()) {
+        return nativeImageAtIndexCacheIfNeeded(index, subsamplingLevel, { DecodingMode::Synchronous, options.shouldDecodeToHDR(), options.sizeForDrawing() });
+    }
+#endif
+
     // If this is an animated image and the frame is not available, we have no
     // choice but to decode it synchronously. Otherwise, a flicker will happen.
     if (options.decodingMode() == DecodingMode::Asynchronous && !isAnimated())

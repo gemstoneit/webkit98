@@ -56,6 +56,10 @@ public:
     void suspendFontLoading();
     void resumeFontLoading();
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniFontLoadingTimerForDiagnostics() const { return &m_fontLoadingTimer; }
+#endif
+
 private:
     void fontLoadingTimerFired();
     Ref<Document> protectedDocument() const { return m_document.get(); }

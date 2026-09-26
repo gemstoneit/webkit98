@@ -89,6 +89,10 @@ public:
 
     WEBCORE_EXPORT FocusableElementSearchResult findAndFocusElementStartingWithLocalFrame(FocusDirection, const FocusEventData&, LocalFrame&);
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniFocusRepaintTimerForDiagnostics() const { return &m_focusRepaintTimer; }
+#endif
+
 private:
     void setActiveInternal(bool);
     void setFocusedInternal(bool);

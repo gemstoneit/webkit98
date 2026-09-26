@@ -138,6 +138,16 @@ public:
     WEBCORE_EXPORT bool needsLayout() const;
     WEBCORE_EXPORT void setNeedsLayoutAfterViewConfigurationChange();
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniUpdateEmbeddedObjectsTimerForDiagnostics() const { return &m_updateEmbeddedObjectsTimer; }
+    const Timer* win98MiniUpdateWidgetPositionsTimerForDiagnostics() const { return &m_updateWidgetPositionsTimer; }
+    const Timer* win98MiniDelayedScrollEventTimerForDiagnostics() const { return &m_delayedScrollEventTimer; }
+    const Timer* win98MiniDelayedScrollToFocusedElementTimerForDiagnostics() const { return &m_delayedScrollToFocusedElementTimer; }
+    const Timer* win98MiniSpeculativeTilingEnableTimerForDiagnostics() const { return &m_speculativeTilingEnableTimer; }
+    const Timer* win98MiniDelayedTextFragmentIndicatorTimerForDiagnostics() const { return &m_delayedTextFragmentIndicatorTimer; }
+    const Timer* win98MiniScrollToTextFragmentRetryTimerForDiagnostics() const { return &m_scrollToTextFragmentRetryTimer; }
+#endif
+
     void setNeedsCompositingConfigurationUpdate();
     void setNeedsCompositingGeometryUpdate();
     void setDescendantsNeedUpdateBackingAndHierarchyTraversal();

@@ -52,12 +52,50 @@
 #include "ScriptDisallowedScope.h"
 #include "Settings.h"
 #include "StyleScope.h"
+#include <stdio.h>
 #include <wtf/SetForScope.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
+
+
+#if defined(BUILDING_WIN98MINI__)
+static void win98MiniLayoutTrace(const char* message)
+{
+    FILE* file = fopen("C:\\DOMSMOKE\\LAYOUT.LOG", "ab");
+    if (!file)
+        file = fopen("LAYOUT.LOG", "ab");
+    if (!file)
+        return;
+    fputs(message, file);
+    fputs("\r\n", file);
+    fclose(file);
+}
+
+void LocalFrameViewLayoutContext::win98MiniTraceLayoutState(const char* phase) const
+{
+    auto* document = this->document();
+    auto& view = this->view();
+    char message[384];
+    snprintf(
+        message,
+        sizeof(message),
+        "performLayout %s document=%p inRenderTreeUpdate=%u phase=%u painting=%u hasRenderView=%u pending=%u needsLayout=%u subtree=%p",
+        phase ? phase : "",
+        document,
+        document && document->inRenderTreeUpdate() ? 1U : 0U,
+        static_cast<unsigned>(this->layoutPhase()),
+        view.isPainting() ? 1U : 0U,
+        document && document->renderView() ? 1U : 0U,
+        this->isLayoutPending() ? 1U : 0U,
+        this->needsLayout() ? 1U : 0U,
+        this->subtreeLayoutRoot());
+    win98MiniLayoutTrace(message);
+}
+#endif
+
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(LocalFrameViewLayoutContext);
 
@@ -201,8 +239,14 @@ void LocalFrameViewLayoutContext::interleavedLayout()
 
 void LocalFrameViewLayoutContext::performLayout(bool canDeferUpdateLayerPositions)
 {
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniTraceLayoutState("enter");
+#endif
     Ref frame = this->frame();
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(!document()->inRenderTreeUpdate());
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniTraceLayoutState("after-release-assert");
+#endif
     ASSERT(LayoutDisallowedScope::isLayoutAllowed());
     ASSERT(!view().isPainting());
     ASSERT(frame->view() == &view());
@@ -211,8 +255,14 @@ void LocalFrameViewLayoutContext::performLayout(bool canDeferUpdateLayerPosition
         || document()->backForwardCacheState() == Document::AboutToEnterBackForwardCache);
     if (!canPerformLayout()) {
         LOG(Layout, "  is not allowed, bailing");
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniTraceLayoutState("can-perform-layout-false");
+#endif
         return;
     }
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniTraceLayoutState("after-can-perform-layout");
+#endif
 
     LayoutFrameScope layoutFrameScope(*this);
     TraceScope tracingScope(PerformLayoutStart, PerformLayoutEnd);
@@ -222,6 +272,9 @@ void LocalFrameViewLayoutContext::performLayout(bool canDeferUpdateLayerPosition
     
     m_layoutTimer.stop();
     m_setNeedsLayoutWasDeferred = false;
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniTraceLayoutState("after-stop-layout-timer");
+#endif
 
 #if !LOG_DISABLED
     if (m_firstLayout && !frame->ownerElement())
@@ -233,21 +286,45 @@ void LocalFrameViewLayoutContext::performLayout(bool canDeferUpdateLayerPosition
 #endif
     {
         SetForScope layoutPhase(m_layoutPhase, LayoutPhase::InPreLayout);
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniTraceLayoutState("prelayout-enter");
+#endif
 
         if (!protectedDocument()->isInStyleInterleavedLayoutForSelfOrAncestor()) {
             // If this is a new top-level layout and there are any remaining tasks from the previous layout, finish them now.
-            if (!isLayoutNested() && m_postLayoutTaskTimer.isActive())
+            if (!isLayoutNested() && m_postLayoutTaskTimer.isActive()) {
+#if defined(BUILDING_WIN98MINI__)
+                win98MiniTraceLayoutState("before-run-post-layout-tasks");
+#endif
                 runPostLayoutTasks();
+#if defined(BUILDING_WIN98MINI__)
+                win98MiniTraceLayoutState("after-run-post-layout-tasks");
+#endif
+            }
 
+#if defined(BUILDING_WIN98MINI__)
+            win98MiniTraceLayoutState("before-update-style-for-layout");
+#endif
             updateStyleForLayout();
+#if defined(BUILDING_WIN98MINI__)
+            win98MiniTraceLayoutState("after-update-style-for-layout");
+#endif
         }
 
-        if (view().hasOneRef())
+        if (view().hasOneRef()) {
+#if defined(BUILDING_WIN98MINI__)
+            win98MiniTraceLayoutState("return-view-has-one-ref-prelayout");
+#endif
             return;
+        }
 
         protectedView()->autoSizeIfEnabled();
-        if (!renderView())
+        if (!renderView()) {
+#if defined(BUILDING_WIN98MINI__)
+            win98MiniTraceLayoutState("return-no-render-view-prelayout");
+#endif
             return;
+        }
 
         layoutRoot = subtreeLayoutRoot() ? subtreeLayoutRoot() : renderView();
         m_needsFullRepaint = is<RenderView>(layoutRoot) && (m_firstLayout || renderView()->printing());
@@ -256,23 +333,41 @@ void LocalFrameViewLayoutContext::performLayout(bool canDeferUpdateLayerPosition
 
         protectedView()->willDoLayout(layoutRoot);
         m_firstLayout = false;
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniTraceLayoutState("prelayout-exit");
+#endif
     }
 
     Vector<FloatQuad> layoutAreas;
     {
         TraceScope tracingScope(RenderTreeLayoutStart, RenderTreeLayoutEnd);
         SetForScope layoutPhase(m_layoutPhase, LayoutPhase::InRenderTreeLayout);
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniTraceLayoutState("render-tree-layout-enter");
+#endif
         ScriptDisallowedScope::InMainThread scriptDisallowedScope;
         SubtreeLayoutStateMaintainer subtreeLayoutStateMaintainer(subtreeLayoutRoot());
         RenderView::RepaintRegionAccumulator repaintRegionAccumulator(renderView());
 #ifndef NDEBUG
         RenderTreeNeedsLayoutChecker checker(*renderView());
 #endif
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniTraceLayoutState("before-layout-root-layout");
+#endif
         layoutRoot->layout();
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniTraceLayoutState("after-layout-root-layout");
+#endif
 #if ENABLE(TEXT_AUTOSIZING)
         applyTextSizingIfNeeded(*layoutRoot.get());
 #endif
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniTraceLayoutState("before-layout-root-absolute-quads");
+#endif
         layoutRoot->absoluteQuads(layoutAreas);
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniTraceLayoutState("after-layout-root-absolute-quads");
+#endif
 
         clearSubtreeLayoutRoot();
         ASSERT(m_percentHeightIgnoreList.isEmptyIgnoringNullReferences());
@@ -287,27 +382,61 @@ void LocalFrameViewLayoutContext::performLayout(bool canDeferUpdateLayerPosition
     }
     {
         SetForScope layoutPhase(m_layoutPhase, LayoutPhase::InViewSizeAdjust);
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniTraceLayoutState("view-size-adjust-enter");
+#endif
         ScriptDisallowedScope::InMainThread scriptDisallowedScope;
         if (is<RenderView>(layoutRoot) && !renderView()->printing()) {
             // This is to protect m_needsFullRepaint's value when layout() is getting re-entered through adjustViewSize().
             SetForScope needsFullRepaint(m_needsFullRepaint);
+#if defined(BUILDING_WIN98MINI__)
+            win98MiniTraceLayoutState("before-adjust-view-size");
+#endif
             protectedView()->adjustViewSize();
+#if defined(BUILDING_WIN98MINI__)
+            win98MiniTraceLayoutState("after-adjust-view-size");
+#endif
             // FIXME: Firing media query callbacks synchronously on nested frames could produced a detached FrameView here by
             // navigating away from the current document (see webkit.org/b/173329).
-            if (view().hasOneRef())
+            if (view().hasOneRef()) {
+#if defined(BUILDING_WIN98MINI__)
+                win98MiniTraceLayoutState("return-view-has-one-ref-view-size-adjust");
+#endif
                 return;
+            }
         }
     }
     {
         SetForScope layoutPhase(m_layoutPhase, LayoutPhase::InPostLayout);
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniTraceLayoutState("postlayout-enter");
+#endif
         if (m_needsFullRepaint)
             renderView()->repaintRootContents();
         ASSERT(!layoutRoot->needsLayout());
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniTraceLayoutState("before-did-layout");
+#endif
         protectedView()->didLayout(layoutRoot, canDeferUpdateLayerPositions);
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniTraceLayoutState("after-did-layout");
+#endif
         runOrScheduleAsynchronousTasks(canDeferUpdateLayerPositions);
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniTraceLayoutState("after-run-or-schedule-async-tasks");
+#endif
     }
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniTraceLayoutState("before-inspector-did-layout");
+#endif
     InspectorInstrumentation::didLayout(frame, layoutAreas);
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniTraceLayoutState("before-debug-overlays-did-layout");
+#endif
     DebugPageOverlays::didLayout(frame);
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniTraceLayoutState("exit");
+#endif
 }
 
 void LocalFrameViewLayoutContext::runOrScheduleAsynchronousTasks(bool canDeferUpdateLayerPositions)

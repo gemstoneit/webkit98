@@ -53,6 +53,10 @@ public:
     WEBCORE_EXPORT bool onLine();
     WEBCORE_EXPORT void addListener(Function<void(bool isOnLine)>&&);
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniUpdateStateTimerForDiagnostics() const { return &m_updateStateTimer; }
+#endif
+
 private:
     friend NeverDestroyed<NetworkStateNotifier>;
 

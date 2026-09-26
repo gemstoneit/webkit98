@@ -222,6 +222,10 @@ public:
     CachedResourceLoader& cachedResourceLoader() { return m_cachedResourceLoader; }
     Ref<CachedResourceLoader> protectedCachedResourceLoader() const;
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniSubstituteResourceDeliveryTimerForDiagnostics() const { return &m_substituteResourceDeliveryTimer; }
+#endif
+
     const SubstituteData& substituteData() const { return m_substituteData; }
 
     const URL& url() const;

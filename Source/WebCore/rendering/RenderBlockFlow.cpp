@@ -32,6 +32,7 @@
 #include "ElementInlines.h"
 #include "FloatingObjects.h"
 #include "FrameSelection.h"
+#include "HTMLNames.h"
 #include "HTMLInputElement.h"
 #include "HTMLTextAreaElement.h"
 #include "HitTestLocation.h"
@@ -79,11 +80,103 @@
 #include "TextBoxTrimmer.h"
 #include "TextUtil.h"
 #include "VisiblePosition.h"
+#include <stdio.h>
 #include <ranges>
 #include <wtf/Scope.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
+
+
+#if defined(BUILDING_WIN98MINI__)
+static unsigned s_win98MiniBlockFlowTraceLines;
+
+static bool win98MiniBlockFlowShouldTrace(const RenderBlockFlow& block)
+{
+    if (block.isRenderView() || block.isDocumentElementRenderer())
+        return true;
+    auto* parent = block.parent();
+    return parent && parent->isRenderView();
+}
+
+static void win98MiniRendererInfo(const RenderElement& renderer, char* output, size_t outputSize)
+{
+    if (!output || !outputSize)
+        return;
+
+    auto* element = renderer.element();
+    auto tag = element ? element->localName().string().utf8() : CString();
+    auto id = element ? element->attributeWithoutSynchronization(HTMLNames::idAttr).string().utf8() : CString();
+    auto className = element ? element->attributeWithoutSynchronization(HTMLNames::classAttr).string().utf8() : CString();
+    snprintf(
+        output,
+        outputSize,
+        "%s tag=%s id=%.*s class=%.*s",
+        renderer.renderName().characters(),
+        tag.data() ? tag.data() : "-",
+        80,
+        id.data() ? id.data() : "",
+        160,
+        className.data() ? className.data() : "");
+}
+
+static void win98MiniBlockFlowTrace(const char* phase, const RenderBlockFlow& block, RelayoutChildren relayoutChildren, const RenderBox* child = nullptr)
+{
+    if (!win98MiniBlockFlowShouldTrace(block))
+        return;
+    if (s_win98MiniBlockFlowTraceLines >= 20000)
+        return;
+    ++s_win98MiniBlockFlowTraceLines;
+
+    unsigned childCount = 0;
+    for (auto* object = block.firstChild(); object; object = object->nextSibling())
+        ++childCount;
+
+    FILE* file = fopen("C:\\DOMSMOKE\\BLOCKFLOW.LOG", "ab");
+    if (!file)
+        file = fopen("BLOCKFLOW.LOG", "ab");
+    if (!file)
+        return;
+
+    char blockInfo[320];
+    char childInfo[320];
+    win98MiniRendererInfo(block, blockInfo, sizeof(blockInfo));
+    if (child)
+        win98MiniRendererInfo(*child, childInfo, sizeof(childInfo));
+    else
+        snprintf(childInfo, sizeof(childInfo), "-");
+
+    char message[1024];
+    snprintf(
+        message,
+        sizeof(message),
+        "RenderBlockFlow %s block=%p blockInfo=\"%s\" isView=%u needs=%u selfNeeds=%u childrenInline=%u firstChild=%u childCount=%u logicalWidth=%d logicalHeight=%d relayout=%u child=%p childInfo=\"%s\" childNeeds=%u childOutOfFlow=%u childFloating=%u childExcluded=%u childWidth=%d childHeight=%d",
+        phase ? phase : "",
+        &block,
+        blockInfo,
+        block.isRenderView() ? 1U : 0U,
+        block.needsLayout() ? 1U : 0U,
+        block.selfNeedsLayout() ? 1U : 0U,
+        block.childrenInline() ? 1U : 0U,
+        block.firstChild() ? 1U : 0U,
+        childCount,
+        block.logicalWidth().toInt(),
+        block.logicalHeight().toInt(),
+        relayoutChildren == RelayoutChildren::Yes ? 1U : 0U,
+        child,
+        childInfo,
+        child && child->needsLayout() ? 1U : 0U,
+        child && child->isOutOfFlowPositioned() ? 1U : 0U,
+        child && child->isFloating() ? 1U : 0U,
+        child && child->isExcludedFromNormalLayout() ? 1U : 0U,
+        child ? child->logicalWidth().toInt() : 0,
+        child ? child->logicalHeight().toInt() : 0);
+    fputs(message, file);
+    fputs("\r\n", file);
+    fclose(file);
+}
+#endif
+
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderBlockFlow);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderBlockFlowRareData);
@@ -528,9 +621,16 @@ void RenderBlockFlow::layoutBlockWithNoChildren()
 void RenderBlockFlow::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit pageLogicalHeight)
 {
     ASSERT(needsLayout());
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlock-enter", *this, relayoutChildren);
+#endif
 
-    if (relayoutChildren == RelayoutChildren::No && simplifiedLayout())
+    if (relayoutChildren == RelayoutChildren::No && simplifiedLayout()) {
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlock-return-simplified", *this, relayoutChildren);
+#endif
         return;
+    }
 
     auto isPaginated = [&] {
         // FIXME: Grid calls into layout outside of regular layout phase (during preferred width computation).
@@ -539,26 +639,48 @@ void RenderBlockFlow::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit 
         return false;
     }();
 
-    if (!firstChild() && !isPaginated && !is<RenderMultiColumnSet>(*this) && (parent() && parent()->isBlockContainer()))
+    if (!firstChild() && !isPaginated && !is<RenderMultiColumnSet>(*this) && (parent() && parent()->isBlockContainer())) {
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlock-before-no-children", *this, relayoutChildren);
+#endif
         return layoutBlockWithNoChildren();
+    }
 
     LayoutRepainter repainter(*this);
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlock-after-repainter", *this, relayoutChildren);
+#endif
 
     if (recomputeLogicalWidthAndColumnWidth())
         relayoutChildren = RelayoutChildren::Yes;
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlock-after-recompute-width", *this, relayoutChildren);
+#endif
 
     if (auto* layoutState = view().frameView().layoutContext().layoutState(); layoutState && layoutState->legacyLineClamp() && !isFieldset())
         relayoutChildren = RelayoutChildren::Yes;
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlock-after-legacy-line-clamp", *this, relayoutChildren);
+#endif
 
     rebuildFloatingObjectSetFromIntrudingFloats();
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlock-after-rebuild-floats", *this, relayoutChildren);
+#endif
 
     LayoutUnit previousHeight = logicalHeight();
     // FIXME: should this start out as borderAndPaddingLogicalHeight() + scrollbarLogicalHeight(),
     // for consistency with other render classes?
     resetLogicalHeightBeforeLayoutIfNeeded();
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlock-after-reset-height", *this, relayoutChildren);
+#endif
 
     bool pageLogicalHeightChanged = false;
     checkForPaginationLogicalHeightChange(relayoutChildren, pageLogicalHeight, pageLogicalHeightChanged);
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlock-after-pagination-height-check", *this, relayoutChildren);
+#endif
 
     LayoutUnit repaintLogicalTop;
     LayoutUnit repaintLogicalBottom;
@@ -567,8 +689,14 @@ void RenderBlockFlow::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit 
     const RenderStyle& styleToUse = style();
     do {
         LayoutStateMaintainer statePusher(*this, locationOffset(), isTransformed() || hasReflection() || styleToUse.writingMode().isBlockFlipped(), pageLogicalHeight, pageLogicalHeightChanged);
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlock-loop-after-state-pusher", *this, relayoutChildren);
+#endif
 
         preparePaginationBeforeBlockLayout(relayoutChildren);
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlock-loop-after-prepare-pagination", *this, relayoutChildren);
+#endif
         if (isPaginated)
             pageRemaining = pageLogicalHeightForOffset(0_lu);
 
@@ -593,12 +721,21 @@ void RenderBlockFlow::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit 
         if (!firstChild() && !isAnonymousBlock())
             setChildrenInline(true);
         dirtyForLayoutFromPercentageHeightDescendants();
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlock-before-in-flow-children", *this, relayoutChildren);
+#endif
         layoutInFlowChildren(relayoutChildren, previousHeight, repaintLogicalTop, repaintLogicalBottom, maxFloatLogicalBottom);
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlock-after-in-flow-children", *this, relayoutChildren);
+#endif
         // Expand our intrinsic height to encompass floats.
         LayoutUnit toAdd = borderAndPaddingAfter() + scrollbarLogicalHeight();
         if (lowestFloatLogicalBottom() > (logicalHeight() - toAdd) && createsNewFormattingContext())
             setLogicalHeight(lowestFloatLogicalBottom() + toAdd);
         if (shouldBreakAtLineToAvoidWidow()) {
+#if defined(BUILDING_WIN98MINI__)
+            win98MiniBlockFlowTrace("layoutBlock-widow-retry", *this, relayoutChildren);
+#endif
             setEverHadLayout();
             continue;
         }
@@ -607,8 +744,14 @@ void RenderBlockFlow::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit 
 
     if (relayoutForPagination()) {
         ASSERT(!shouldBreakAtLineToAvoidWidow());
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlock-return-pagination", *this, relayoutChildren);
+#endif
         return;
     }
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlock-after-pagination-relayout-check", *this, relayoutChildren);
+#endif
 
     // Calculate our new height.
     LayoutUnit oldHeight = logicalHeight();
@@ -618,9 +761,15 @@ void RenderBlockFlow::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit 
     // This ensures the size information is correctly computed for the last auto-height fragment receiving content.
     if (CheckedPtr fragmentedFlow = dynamicDowncast<RenderFragmentedFlow>(*this))
         fragmentedFlow->applyBreakAfterContent(afterPaddingEdge);
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlock-after-break-after-content", *this, relayoutChildren);
+#endif
 
     updateLogicalHeight();
     LayoutUnit newHeight = logicalHeight();
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlock-after-update-height", *this, relayoutChildren);
+#endif
 
     LayoutUnit alignContentShift;
     auto shouldApplyAlignContent = [&] {
@@ -639,11 +788,17 @@ void RenderBlockFlow::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit 
             ensureRareBlockFlowData().m_alignContentShift = alignContentShift;
     } else if (hasRareBlockFlowData())
         rareBlockFlowData()->m_alignContentShift = { };
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlock-after-align-content", *this, relayoutChildren);
+#endif
 
     {
         // FIXME: This could be removed once relayoutForPagination() either stop recursing or we manage to
         // re-order them.
         LayoutStateMaintainer statePusher(*this, locationOffset(), isTransformed() || hasReflection() || styleToUse.writingMode().isBlockFlipped(), pageLogicalHeight, pageLogicalHeightChanged);
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlock-before-out-of-flow", *this, relayoutChildren);
+#endif
 
         if (oldHeight != newHeight) {
             if (oldHeight > newHeight && maxFloatLogicalBottom > newHeight && !childrenInline()) {
@@ -664,9 +819,15 @@ void RenderBlockFlow::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit 
             layoutOutOfFlowBoxes(RelayoutChildren::Yes);
         else
             layoutOutOfFlowBoxes(relayoutChildren);
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlock-after-out-of-flow", *this, relayoutChildren);
+#endif
     }
 
     updateDescendantTransformsAfterLayout();
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlock-after-descendant-transforms", *this, relayoutChildren);
+#endif
 
     // Add overflow from children (unless we're multi-column, since in that case all our child overflow is clipped anyway).
     auto contentArea = flippedContentBoxRect();
@@ -675,16 +836,28 @@ void RenderBlockFlow::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit 
     else
         contentArea.shiftMaxXEdgeTo(afterPaddingEdge - paddingAfter());
     computeOverflow(contentArea);
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlock-after-overflow", *this, relayoutChildren);
+#endif
 
     auto* state = view().frameView().layoutContext().layoutState();
     if (state && state->pageLogicalHeight())
         setPageLogicalOffset(state->pageLogicalOffset(this, logicalTop()));
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlock-after-page-logical-offset", *this, relayoutChildren);
+#endif
 
     updateLayerTransform();
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlock-after-layer-transform", *this, relayoutChildren);
+#endif
 
     // FIXME: This repaint logic should be moved into a separate helper function!
     // Repaint with our new bounds if they are different from our old bounds.
     bool didFullRepaint = repainter.repaintAfterLayout();
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlock-after-repaint", *this, relayoutChildren);
+#endif
     if (!didFullRepaint && repaintLogicalTop != repaintLogicalBottom && (styleToUse.usedVisibility() == Visibility::Visible || enclosingLayer()->hasVisibleContent())) {
         // FIXME: We could tighten up the left and right invalidation points if we let layoutInlineChildren fill them in based off the particular lines
         // it had to lay out. We wouldn't need the hasNonVisibleOverflow() hack in that case either.
@@ -805,6 +978,9 @@ LayoutUnit RenderBlockFlow::shiftForAlignContent(LayoutUnit intrinsicLogicalHeig
 
 void RenderBlockFlow::layoutInFlowChildren(RelayoutChildren relayoutChildren, LayoutUnit previousHeight, LayoutUnit& repaintLogicalTop, LayoutUnit& repaintLogicalBottom, LayoutUnit& maxFloatLogicalBottom)
 {
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutInFlowChildren-enter", *this, relayoutChildren);
+#endif
     if (!firstChild()) {
         // Empty block containers produce empty formatting lines which may affect trim-start/end.
         auto textBoxTrimmer = TextBoxTrimmer { *this };
@@ -817,19 +993,31 @@ void RenderBlockFlow::layoutInFlowChildren(RelayoutChildren relayoutChildren, La
         repaintLogicalTop = { };
         repaintLogicalBottom = { };
         maxFloatLogicalBottom = { };
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutInFlowChildren-return-empty", *this, relayoutChildren);
+#endif
         return;
     }
 
     // FIXME: We should bail out sooner when subtree layout entry point is _inside_ a skipped subtree.
     if ((layoutContext().isSkippedContentRootForLayout(*this) || layoutContext().isSkippedContentForLayout(*this)) && !(isRenderMultiColumnFlow() || multiColumnFlow())) {
         clearNeedsLayoutForSkippedContent();
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutInFlowChildren-return-skipped", *this, relayoutChildren);
+#endif
         return;
     }
 
     {
         auto textBoxTrimmer = TextBoxTrimmer { *this };
         auto lineClampUpdater = LineClampUpdater { *this };
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace(childrenInline() ? "layoutInFlowChildren-before-inline" : "layoutInFlowChildren-before-block", *this, relayoutChildren);
+#endif
         childrenInline() ? layoutInlineChildren(relayoutChildren, previousHeight, repaintLogicalTop, repaintLogicalBottom) : layoutBlockChildren(relayoutChildren, maxFloatLogicalBottom);
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace(childrenInline() ? "layoutInFlowChildren-after-inline" : "layoutInFlowChildren-after-block", *this, relayoutChildren);
+#endif
     }
     {
         auto applyTextBoxTrimEndIfNeeded = [&] {
@@ -842,11 +1030,20 @@ void RenderBlockFlow::layoutInFlowChildren(RelayoutChildren relayoutChildren, La
                     ancestor->setNeedsLayout(MarkOnlyThis);
 
                 auto textBoxTrimmer = TextBoxTrimmer { *this, *rootForLastFormattedLine };
+#if defined(BUILDING_WIN98MINI__)
+                win98MiniBlockFlowTrace(childrenInline() ? "layoutInFlowChildren-before-trim-inline" : "layoutInFlowChildren-before-trim-block", *this, relayoutChildren);
+#endif
                 childrenInline() ? layoutInlineChildren(RelayoutChildren::No, previousHeight, repaintLogicalTop, repaintLogicalBottom) : layoutBlockChildren(RelayoutChildren::No, maxFloatLogicalBottom);
+#if defined(BUILDING_WIN98MINI__)
+                win98MiniBlockFlowTrace(childrenInline() ? "layoutInFlowChildren-after-trim-inline" : "layoutInFlowChildren-after-trim-block", *this, relayoutChildren);
+#endif
             }
         };
         applyTextBoxTrimEndIfNeeded();
     }
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutInFlowChildren-exit", *this, relayoutChildren);
+#endif
 }
 
 static inline bool isSkippedContentRootOrSkippedContent(const RenderBlockFlow& blockFlow)
@@ -857,9 +1054,15 @@ static inline bool isSkippedContentRootOrSkippedContent(const RenderBlockFlow& b
 void RenderBlockFlow::layoutBlockChildren(RelayoutChildren relayoutChildren, LayoutUnit& maxFloatLogicalBottom)
 {
     ASSERT(firstChild());
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChildren-enter", *this, relayoutChildren);
+#endif
 
     setLogicalHeight(borderAndPaddingBefore());
     auto* layoutState = view().frameView().layoutContext().layoutState(); 
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChildren-after-set-height", *this, relayoutChildren);
+#endif
 
     // The margin struct caches all our current margin collapsing state.
     auto marginInfo = MarginInfo { *this, MarginInfo::IgnoreScrollbarForAfterMargin::No };
@@ -877,12 +1080,21 @@ void RenderBlockFlow::layoutBlockChildren(RelayoutChildren relayoutChildren, Lay
     auto resetBlockStartMarginTrimming = WTF::makeScopeExit([&] {
         layoutState->setMarginTrimBlockStart(marginTrimBlockStartFromContainingBlock);
     });
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChildren-after-margin-trim", *this, relayoutChildren);
+#endif
 
 
     // Fieldsets need to find their legend and position it inside the border of the object.
     // The legend then gets skipped during normal layout. The same is true for ruby text.
     // It doesn't get included in the normal layout process but is instead skipped.
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChildren-before-excluded", *this, relayoutChildren);
+#endif
     layoutExcludedChildren(relayoutChildren);
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChildren-after-excluded", *this, relayoutChildren);
+#endif
 
     LayoutUnit previousFloatLogicalBottom;
     maxFloatLogicalBottom = 0;
@@ -891,27 +1103,52 @@ void RenderBlockFlow::layoutBlockChildren(RelayoutChildren relayoutChildren, Lay
 
     while (next) {
         RenderBox& child = *next;
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlockChildren-child-enter", *this, relayoutChildren, &child);
+#endif
         next = child.nextSiblingBox();
 
-        if (child.isExcludedFromNormalLayout())
+        if (child.isExcludedFromNormalLayout()) {
+#if defined(BUILDING_WIN98MINI__)
+            win98MiniBlockFlowTrace("layoutBlockChildren-child-skip-excluded", *this, relayoutChildren, &child);
+#endif
             continue; // Skip this child, since it will be positioned by the specialized subclass (fieldsets and ruby runs).
+        }
 
         if (layoutContext().isSkippedContentForLayout(child) && !(isRenderMultiColumnFlow() || multiColumnFlow())) {
             ASSERT(child.isColumnSpanner());
 
             child.clearNeedsLayout();
             child.clearNeedsLayoutForSkippedContent();
+#if defined(BUILDING_WIN98MINI__)
+            win98MiniBlockFlowTrace("layoutBlockChildren-child-skip-skipped-content", *this, relayoutChildren, &child);
+#endif
             continue;
         }
 
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlockChildren-before-update-dirty", *this, relayoutChildren, &child);
+#endif
         updateBlockChildDirtyBitsBeforeLayout(relayoutChildren, child);
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlockChildren-after-update-dirty", *this, relayoutChildren, &child);
+#endif
 
         if (child.isOutOfFlowPositioned()) {
+#if defined(BUILDING_WIN98MINI__)
+            win98MiniBlockFlowTrace("layoutBlockChildren-child-before-out-of-flow", *this, relayoutChildren, &child);
+#endif
             child.containingBlock()->addOutOfFlowBox(child);
             adjustOutOfFlowBlock(child, marginInfo);
+#if defined(BUILDING_WIN98MINI__)
+            win98MiniBlockFlowTrace("layoutBlockChildren-child-after-out-of-flow", *this, relayoutChildren, &child);
+#endif
             continue;
         }
         if (child.isFloating()) {
+#if defined(BUILDING_WIN98MINI__)
+            win98MiniBlockFlowTrace("layoutBlockChildren-child-before-floating", *this, relayoutChildren, &child);
+#endif
             auto markSiblingsIfIntrudingForLayout = [&] {
                 // Let's find out if this float box is (was) intruding to sibling boxes and mark them for layout accordingly. 
                 if (!child.selfNeedsLayout() || !child.everHadLayout()) {
@@ -932,19 +1169,37 @@ void RenderBlockFlow::layoutBlockChildren(RelayoutChildren relayoutChildren, Lay
             markSiblingsIfIntrudingForLayout();
             insertFloatingBoxAndMarkForLayout(child);
             adjustFloatingBlock(marginInfo);
+#if defined(BUILDING_WIN98MINI__)
+            win98MiniBlockFlowTrace("layoutBlockChildren-child-after-floating", *this, relayoutChildren, &child);
+#endif
             continue;
         }
 
         // Lay out the child.
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlockChildren-before-layout-child", *this, relayoutChildren, &child);
+#endif
         layoutBlockChild(child, marginInfo, previousFloatLogicalBottom, maxFloatLogicalBottom);
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlockChildren-after-layout-child", *this, relayoutChildren, &child);
+#endif
     }
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChildren-after-loop", *this, relayoutChildren);
+#endif
     
     if (style().marginTrim().contains(Style::MarginTrimSide::BlockEnd))
         trimBlockEndChildrenMargins();
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChildren-after-trim-end", *this, relayoutChildren);
+#endif
     // Now do the handling of the bottom of the block, adding in our bottom border/padding and
     // determining the correct collapsed bottom margin information.
     auto borderBoxLogicalHeight = handleAfterSideOfBlock(marginInfo, logicalHeight() - borderAndPaddingBefore());
     setLogicalHeight(borderBoxLogicalHeight);
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChildren-exit", *this, relayoutChildren);
+#endif
 }
 
 RenderBlockFlow::BlockPositionAndMargin RenderBlockFlow::layoutBlockChildFromInlineLayout(RenderBox& child, LayoutUnit contentHeight, MarginInfo marginInfo)
@@ -1078,17 +1333,32 @@ void RenderBlockFlow::performBlockStepSizing(RenderBox& child, LayoutUnit blockS
 
 void RenderBlockFlow::layoutBlockChild(RenderBox& child, MarginInfo& marginInfo, LayoutUnit& previousFloatLogicalBottom, LayoutUnit& maxFloatLogicalBottom)
 {
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChild-enter", *this, RelayoutChildren::No, &child);
+#endif
     LayoutUnit oldPosMarginBefore = maxPositiveMarginBefore();
     LayoutUnit oldNegMarginBefore = maxNegativeMarginBefore();
 
     // The child is a normal flow object. Compute the margins we will use for collapsing now.
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChild-before-compute-margins", *this, RelayoutChildren::No, &child);
+#endif
     child.computeAndSetBlockDirectionMargins(*this);
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChild-after-compute-margins", *this, RelayoutChildren::No, &child);
+#endif
 
     // Try to guess our correct logical top position. In most cases this guess will
     // be correct. Only if we're wrong (when we compute the real logical top position)
     // will we have to potentially relayout.
     LayoutUnit estimateWithoutPagination;
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChild-before-estimate-top", *this, RelayoutChildren::No, &child);
+#endif
     LayoutUnit logicalTopEstimate = estimateLogicalTopPosition(child, marginInfo, estimateWithoutPagination);
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChild-after-estimate-top", *this, RelayoutChildren::No, &child);
+#endif
 
     // Cache our old rect so that we can dirty the proper repaint rects if the child moves.
     LayoutRect oldRect = child.frameRect();
@@ -1099,7 +1369,13 @@ void RenderBlockFlow::layoutBlockChild(RenderBox& child, MarginInfo& marginInfo,
 #endif
     // Position the child as though it didn't collapse with the top.
     setLogicalTopForChild(child, logicalTopEstimate, ApplyLayoutDelta);
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChild-after-set-logical-top", *this, RelayoutChildren::No, &child);
+#endif
     estimateFragmentRangeForBoxChild(child);
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChild-after-estimate-fragment-range", *this, RelayoutChildren::No, &child);
+#endif
 
     auto* childBlockFlow = dynamicDowncast<RenderBlockFlow>(child);
     bool markDescendantsWithFloats = false;
@@ -1120,22 +1396,46 @@ void RenderBlockFlow::layoutBlockChild(RenderBox& child, MarginInfo& marginInfo,
     }
 
     if (childBlockFlow) {
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlockChild-child-is-block-flow", *this, RelayoutChildren::No, &child);
+#endif
         if (markDescendantsWithFloats)
             childBlockFlow->markAllDescendantsWithFloatsForLayout();
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlockChild-after-float-descendant-mark", *this, RelayoutChildren::No, &child);
+#endif
         if (!child.isWritingModeRoot())
             previousFloatLogicalBottom = std::max(previousFloatLogicalBottom, oldLogicalTop + childBlockFlow->lowestFloatLogicalBottom());
+#if defined(BUILDING_WIN98MINI__)
+        win98MiniBlockFlowTrace("layoutBlockChild-after-previous-float-bottom", *this, RelayoutChildren::No, &child);
+#endif
     }
 
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChild-before-pagination-mark", *this, RelayoutChildren::No, &child);
+#endif
     child.markForPaginationRelayoutIfNeeded();
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChild-after-pagination-mark", *this, RelayoutChildren::No, &child);
+#endif
 
     bool childHadLayout = child.everHadLayout();
     bool childNeededLayout = child.needsLayout();
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace(childNeededLayout ? "layoutBlockChild-before-child-layout" : "layoutBlockChild-child-layout-not-needed", *this, RelayoutChildren::No, &child);
+#endif
     if (childNeededLayout)
         child.layout();
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChild-after-child-layout", *this, RelayoutChildren::No, &child);
+#endif
 
     auto& childStyle = child.style();
     if (auto blockStepSizeForChild = childStyle.blockStepSize().tryLength(); blockStepSizeForChild && BlockStepSizing::childHasSupportedStyle(childStyle))
         performBlockStepSizing(child, LayoutUnit(blockStepSizeForChild->resolveZoom(Style::ZoomNeeded { })));
+#if defined(BUILDING_WIN98MINI__)
+    win98MiniBlockFlowTrace("layoutBlockChild-after-block-step-sizing", *this, RelayoutChildren::No, &child);
+#endif
 
     // Cache if we are at the top of the block right now.
     bool atBeforeSideOfBlock = marginInfo.atBeforeSideOfBlock();

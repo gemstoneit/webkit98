@@ -58,6 +58,10 @@ public:
         --m_requestsInFlight;
     }
 
+#if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
+    const Timer* win98MiniTimerForDiagnostics() const { return &m_timer; }
+#endif
+
 protected:
     DNSResolveQueue();
     bool isUsingProxy();

@@ -35,6 +35,7 @@
 #include "DefaultResourceLoadPriority.h"
 #include "DocumentInlines.h"
 #include "DocumentLoader.h"
+#include "DocumentPage.h"
 #include "DocumentResourceLoader.h"
 #include "DocumentView.h"
 #include "ElementInlines.h"
@@ -700,6 +701,13 @@ void HTMLLinkElement::dispatchPendingLoadEvents(Page* page)
 {
     linkLoadEventSenderSingleton().dispatchPendingEvents(page);
 }
+
+#if (defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE) || (defined(BUILDING_WIN98MINI__) && BUILDING_WIN98MINI__)
+const Timer* HTMLLinkElement::win98MiniLoadEventSenderTimerForDiagnostics()
+{
+    return linkLoadEventSenderSingleton().win98MiniTimerForDiagnostics();
+}
+#endif
 
 void HTMLLinkElement::dispatchPendingEvent(LinkEventSender* eventSender, const AtomString& eventType)
 {
