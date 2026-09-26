@@ -4011,7 +4011,7 @@ JSDOMStringList.cpp
 JSDOMStringMap.cpp
 JSDOMTokenList.cpp
 JSDOMURL.cpp
-JSDOMWindow.cpp @no-unify
+JSDOMWindow.cpp
 JSDataCue.cpp
 JSDataTransfer.cpp
 JSDataTransferItem.cpp

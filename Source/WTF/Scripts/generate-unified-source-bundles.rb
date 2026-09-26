@@ -57,6 +57,7 @@ def usage(message)
     puts "--max-obj-c-bundle-count             Use global sequential numbers for Obj-C bundle filenames and set the limit on the number"
     puts "--max-bundle-size                    The number of files to merge into a single bundle"
     puts "--dense-bundle-filter                Densely bundle files matching the given path glob"
+    puts "--no-unify-filter                    Compile files matching the given path glob standalone"
     exit 1
 end
 
@@ -74,6 +75,7 @@ $maxObjCBundleCount = nil
 $maxNonARCObjCBundleCount = nil
 $maxBundleSize = 8
 $denseBundleFilters = []
+$nonUnifiedSourceFilters = []
 $bundleFilenamePrefix = ''
 
 def log(text)
@@ -95,6 +97,7 @@ GetoptLong.new(['--help', '-h', GetoptLong::NO_ARGUMENT],
                ['--max-non-arc-obj-c-bundle-count', GetoptLong::REQUIRED_ARGUMENT],
                ['--max-bundle-size', GetoptLong::REQUIRED_ARGUMENT],
                ['--dense-bundle-filter', GetoptLong::REQUIRED_ARGUMENT],
+               ['--no-unify-filter', GetoptLong::REQUIRED_ARGUMENT],
                ['--bundle-filename-prefix', GetoptLong::REQUIRED_ARGUMENT]).each {
     | opt, arg |
     case opt
@@ -129,6 +132,8 @@ GetoptLong.new(['--help', '-h', GetoptLong::NO_ARGUMENT],
         $maxBundleSize = arg.to_i
     when '--dense-bundle-filter'
         $denseBundleFilters.push(arg)
+    when '--no-unify-filter'
+        $nonUnifiedSourceFilters.push(arg)
     when '--bundle-filename-prefix'
         $bundleFilenamePrefix = arg
     end
@@ -175,6 +180,7 @@ class SourceFile
         end
 
         @path = Pathname.new(file.strip)
+        @unifiable = false if $nonUnifiedSourceFilters.any? { |filter| @path.fnmatch(filter) }
         @bundleManagerKey = @path.extname
         if @nonARC
             case @bundleManagerKey
