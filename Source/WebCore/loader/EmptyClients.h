@@ -61,9 +61,9 @@ class EmptyChromeClient : public ChromeClient {
     void chromeDestroyed() override { }
 
     void setWindowRect(const FloatRect&) final { }
-    FloatRect windowRect() const final { return FloatRect(); }
+    FloatRect windowRect() const override { return FloatRect(); }
 
-    FloatRect pageRect() const final { return FloatRect(); }
+    FloatRect pageRect() const override { return FloatRect(); }
 
     void focus() final { }
     void unfocus() final { }
@@ -114,14 +114,14 @@ class EmptyChromeClient : public ChromeClient {
     std::optional<PointerCharacteristics> pointerCharacteristicsOfPrimaryPointingDevice() const final { return std::nullopt; };
     OptionSet<PointerCharacteristics> pointerCharacteristicsOfAllAvailablePointingDevices() const final { return { }; }
 
-    void invalidateRootView(const IntRect&) final { }
+    void invalidateRootView(const IntRect&) override { }
     void invalidateContentsAndRootView(const IntRect&) override { }
-    void invalidateContentsForSlowScroll(const IntRect&) final { }
-    void scroll(const IntSize&, const IntRect&, const IntRect&) final { }
+    void invalidateContentsForSlowScroll(const IntRect&) override { }
+    void scroll(const IntSize&, const IntRect&, const IntRect&) override { }
 
-    IntPoint screenToRootView(const IntPoint& p) const final { return p; }
-    IntPoint rootViewToScreen(const IntPoint& p) const final { return p; }
-    IntRect rootViewToScreen(const IntRect& r) const final { return r; }
+    IntPoint screenToRootView(const IntPoint& p) const override { return p; }
+    IntPoint rootViewToScreen(const IntPoint& p) const override { return p; }
+    IntRect rootViewToScreen(const IntRect& r) const override { return r; }
     IntPoint accessibilityScreenToRootView(const IntPoint& p) const final { return p; };
     IntRect rootViewToAccessibilityScreen(const IntRect& r) const final { return r; };
 #if PLATFORM(IOS_FAMILY)
@@ -172,7 +172,7 @@ class EmptyChromeClient : public ChromeClient {
     void attachRootGraphicsLayer(LocalFrame&, GraphicsLayer*) final { }
     void attachViewOverlayGraphicsLayer(GraphicsLayer*) final { }
     void setNeedsOneShotDrawingSynchronization() final { }
-    void triggerRenderingUpdate() final { }
+    void triggerRenderingUpdate() override { }
 
 #if PLATFORM(WIN)
     void AXStartFrameLoad() final { }
@@ -220,7 +220,7 @@ class EmptyChromeClient : public ChromeClient {
 
     void wheelEventHandlersChanged(bool) final { }
     
-    bool isEmptyChromeClient() const final { return true; }
+    bool isEmptyChromeClient() const override { return true; }
 
     void didAssociateFormControls(const Vector<Ref<Element>>&, LocalFrame&) final { }
     bool shouldNotifyOnFormChanges() final { return false; }
