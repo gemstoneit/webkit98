@@ -30,11 +30,11 @@
 
 #pragma once
 
+#include "DocumentFragment.h"
 #include "HTMLElement.h"
 
 namespace WebCore {
 
-class DocumentFragment;
 class TemplateContentDocumentFragment;
 
 class HTMLTemplateElement final : public HTMLElement {
