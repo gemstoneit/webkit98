@@ -47,7 +47,11 @@ public:
 private:
     bool isValid() const final
     {
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+        return true;
+#else
         return !m_owner->isPendingDestruction();
+#endif
     }
 
     void handleFire(VM& vm, const FireDetail&) final

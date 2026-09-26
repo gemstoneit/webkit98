@@ -47,6 +47,13 @@
 #include "WebAssemblyFunction.h"
 #endif
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+
 namespace JSC {
 
 JSC_DEFINE_HOST_FUNCTION(callHostFunctionAsConstructor, (JSGlobalObject* globalObject, CallFrame* callFrame))
@@ -97,9 +104,17 @@ JSFunction* JSFunction::create(VM& vm, JSGlobalObject*, FunctionExecutable* exec
 
 JSFunction* JSFunction::create(VM& vm, JSGlobalObject* globalObject, unsigned length, const String& name, NativeFunction nativeFunction, ImplementationVisibility implementationVisibility, Intrinsic intrinsic, NativeFunction nativeConstructor, const DOMJIT::Signature* signature)
 {
+    if (!vm.propertyNames)
+        WIN98_TRACE("JSFunction::create(native): propertyNames before getHostFunction null");
     NativeExecutable* executable = vm.getHostFunction(nativeFunction, implementationVisibility, intrinsic, nativeConstructor, signature, name);
+    if (!vm.propertyNames)
+        WIN98_TRACE("JSFunction::create(native): propertyNames after getHostFunction null");
     Structure* structure = globalObject->hostFunctionStructure();
+    if (!vm.propertyNames)
+        WIN98_TRACE("JSFunction::create(native): propertyNames before allocation null");
     JSFunction* function = new (NotNull, allocateCell<JSFunction>(vm)) JSFunction(vm, executable, globalObject, structure);
+    if (!vm.propertyNames)
+        WIN98_TRACE("JSFunction::create(native): propertyNames before finish null");
     // Can't do this during initialization because getHostFunction might do a GC allocation.
     function->finishCreation(vm, executable, length, name);
     return function;
@@ -127,7 +142,11 @@ void JSFunction::finishCreation(VM& vm)
 
 void JSFunction::finishCreation(VM& vm, NativeExecutable*, unsigned length, const String& name)
 {
+    if (!vm.propertyNames)
+        WIN98_TRACE("JSFunction::finishCreation(native): propertyNames before Base null");
     Base::finishCreation(vm);
+    if (!vm.propertyNames)
+        WIN98_TRACE("JSFunction::finishCreation(native): propertyNames after Base null");
     ASSERT(inherits(info()));
     ASSERT(type() == JSFunctionType);
     // JSCell::{getCallData,getConstructData} relies on the following conditions.
@@ -137,9 +156,17 @@ void JSFunction::finishCreation(VM& vm, NativeExecutable*, unsigned length, cons
     // JSBoundFunction/JSRemoteFunction instances use finishCreation(VM&) overload and lazily allocate their name string / length.
     ASSERT(!this->inherits<JSBoundFunction>() && !this->inherits<JSRemoteFunction>());
 
-    putDirect(vm, vm.propertyNames->length, jsNumber(length), PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum);
-    if (!name.isNull())
-        putDirect(vm, vm.propertyNames->name, jsString(vm, name), PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum);
+    auto* propertyNames = vm.propertyNames;
+    if (!propertyNames)
+        WIN98_TRACE("JSFunction::finishCreation(native): length propertyNames pointer null");
+    auto lengthProperty = propertyNames->length;
+    auto lengthValue = jsNumber(length);
+    putDirect(vm, lengthProperty, lengthValue, PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum);
+    if (!name.isNull()) {
+        auto nameProperty = propertyNames->name;
+        auto nameValue = jsString(vm, name);
+        putDirect(vm, nameProperty, nameValue, PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum);
+    }
 }
 
 FunctionRareData* JSFunction::allocateRareData(VM& vm)

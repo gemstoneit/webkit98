@@ -41,6 +41,15 @@
 
 #include "ArrayConstructor.lut.h"
 
+#ifndef WIN98_TRACE
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+#endif
+
 namespace JSC {
 
 const ASCIILiteral ArrayInvalidLengthError { "Array length must be a positive integer of safe magnitude."_s };
@@ -58,6 +67,9 @@ const ClassInfo ArrayConstructor::s_info = { "Function"_s, &InternalFunction::s_
 static JSC_DECLARE_HOST_FUNCTION(callArrayConstructor);
 static JSC_DECLARE_HOST_FUNCTION(constructWithArrayConstructor);
 static JSC_DECLARE_HOST_FUNCTION(arrayConstructorOf);
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+static JSC_DECLARE_HOST_FUNCTION(arrayConstructorFromLegacy);
+#endif
 
 ArrayConstructor::ArrayConstructor(VM& vm, Structure* structure)
     : InternalFunction(vm, structure, callArrayConstructor, constructWithArrayConstructor)
@@ -72,6 +84,9 @@ void ArrayConstructor::finishCreation(VM& vm, JSGlobalObject* globalObject, Arra
     JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->of, arrayConstructorOf, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, ImplementationVisibility::Public, ArrayConstructorOfIntrinsic);
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->isArray, arrayConstructorIsArrayCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->from, arrayConstructorFromLegacy, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Public);
+#endif
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().fromPrivateName(), arrayConstructorFromCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().fromAsyncPublicName(), arrayConstructorFromAsyncCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
 }
@@ -346,39 +361,48 @@ static JSArray* tryCreateArrayFromClonedArguments(JSGlobalObject* globalObject, 
 
 static JSArray* tryCreateArrayFromSet(JSGlobalObject* globalObject, JSSet* set)
 {
+    WIN98_TRACE("tryCreateArrayFromSet: enter");
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     unsigned length = set->size();
+    WIN98_TRACE("tryCreateArrayFromSet: got length");
 
     if (!length)
         RELEASE_AND_RETURN(scope, constructEmptyArray(globalObject, nullptr));
 
     JSCell* storageCell = set->storageOrSentinel(vm);
+    WIN98_TRACE("tryCreateArrayFromSet: got storage");
     if (storageCell == vm.orderedHashTableSentinel())
         RELEASE_AND_RETURN(scope, constructEmptyArray(globalObject, nullptr));
 
     auto* storage = jsCast<JSSet::Storage*>(storageCell);
+    WIN98_TRACE("tryCreateArrayFromSet: cast storage");
 
     // First pass: determine indexing type
     IndexingType indexingType = IsArray;
     JSSet::Helper::Entry entry = 0;
 
     while (true) {
+        WIN98_TRACE("tryCreateArrayFromSet: first pass before next");
         storageCell = JSSet::Helper::nextAndUpdateIterationEntry(vm, *storage, entry);
+        WIN98_TRACE("tryCreateArrayFromSet: first pass after next");
         if (storageCell == vm.orderedHashTableSentinel())
             break;
 
         auto* currentStorage = jsCast<JSSet::Storage*>(storageCell);
         entry = JSSet::Helper::iterationEntry(*currentStorage) + 1;
         JSValue entryKey = JSSet::Helper::getIterationEntryKey(*currentStorage);
+        WIN98_TRACE("tryCreateArrayFromSet: first pass got key");
 
         indexingType = leastUpperBoundOfIndexingTypeAndValue(indexingType, entryKey);
         storage = currentStorage;
     }
 
+    WIN98_TRACE("tryCreateArrayFromSet: first pass complete");
     Structure* resultStructure = globalObject->arrayStructureForIndexingTypeDuringAllocation(indexingType);
     IndexingType resultIndexingType = resultStructure->indexingType();
+    WIN98_TRACE("tryCreateArrayFromSet: got result structure");
 
     if (hasAnyArrayStorage(resultIndexingType)) [[unlikely]]
         return nullptr;
@@ -393,6 +417,7 @@ static JSArray* tryCreateArrayFromSet(JSGlobalObject* globalObject, JSSet* set)
     if (!memory) [[unlikely]]
         return nullptr;
 
+    WIN98_TRACE("tryCreateArrayFromSet: allocated butterfly");
     DeferGC deferGC(vm);
     auto* resultButterfly = Butterfly::fromBase(memory, 0, 0);
     resultButterfly->setVectorLength(vectorLength);
@@ -400,22 +425,27 @@ static JSArray* tryCreateArrayFromSet(JSGlobalObject* globalObject, JSSet* set)
 
     // Second pass: copy elements
     storageCell = set->storageOrSentinel(vm);
+    WIN98_TRACE("tryCreateArrayFromSet: second pass got storage");
     if (storageCell == vm.orderedHashTableSentinel()) [[unlikely]]
         return nullptr;
     storage = jsCast<JSSet::Storage*>(storageCell);
+    WIN98_TRACE("tryCreateArrayFromSet: second pass cast storage");
 
     entry = 0;
     size_t i = 0;
 
     if (hasDouble(resultIndexingType)) {
         while (true) {
+            WIN98_TRACE("tryCreateArrayFromSet: double copy before next");
             storageCell = JSSet::Helper::nextAndUpdateIterationEntry(vm, *storage, entry);
+            WIN98_TRACE("tryCreateArrayFromSet: double copy after next");
             if (storageCell == vm.orderedHashTableSentinel())
                 break;
 
             auto* currentStorage = jsCast<JSSet::Storage*>(storageCell);
             entry = JSSet::Helper::iterationEntry(*currentStorage) + 1;
             JSValue value = JSSet::Helper::getIterationEntryKey(*currentStorage);
+            WIN98_TRACE("tryCreateArrayFromSet: double copy got key");
 
             ASSERT(value.isNumber());
             resultButterfly->contiguousDouble().atUnsafe(i) = value.asNumber();
@@ -424,13 +454,16 @@ static JSArray* tryCreateArrayFromSet(JSGlobalObject* globalObject, JSSet* set)
         }
     } else if (hasInt32(resultIndexingType) || hasContiguous(resultIndexingType)) {
         while (true) {
+            WIN98_TRACE("tryCreateArrayFromSet: contiguous copy before next");
             storageCell = JSSet::Helper::nextAndUpdateIterationEntry(vm, *storage, entry);
+            WIN98_TRACE("tryCreateArrayFromSet: contiguous copy after next");
             if (storageCell == vm.orderedHashTableSentinel())
                 break;
 
             auto* currentStorage = jsCast<JSSet::Storage*>(storageCell);
             entry = JSSet::Helper::iterationEntry(*currentStorage) + 1;
             JSValue value = JSSet::Helper::getIterationEntryKey(*currentStorage);
+            WIN98_TRACE("tryCreateArrayFromSet: contiguous copy got key");
 
             resultButterfly->contiguous().atUnsafe(i).setWithoutWriteBarrier(value);
             ++i;
@@ -440,6 +473,7 @@ static JSArray* tryCreateArrayFromSet(JSGlobalObject* globalObject, JSSet* set)
         RELEASE_ASSERT_NOT_REACHED();
 
     Butterfly::clearRange(resultIndexingType, resultButterfly, length, vectorLength);
+    WIN98_TRACE("tryCreateArrayFromSet: return array");
     return JSArray::createWithButterfly(vm, nullptr, resultStructure, resultButterfly);
 }
 
@@ -611,11 +645,19 @@ JSC_DEFINE_HOST_FUNCTION(arrayConstructorPrivateFromFastWithoutMapFn, (JSGlobalO
         }
     } else if (items && items.isCell() && items.asCell()->type() == JSSetType) {
         // For `Array.from(set)`
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+        WIN98_TRACE("arrayConstructorPrivateFromFastWithoutMapFn: legacy set fast begin");
+        auto* set = jsCast<JSSet*>(items.asCell());
+        result = tryCreateArrayFromSet(globalObject, set);
+        RETURN_IF_EXCEPTION(scope, { });
+        WIN98_TRACE("arrayConstructorPrivateFromFastWithoutMapFn: legacy set fast end");
+#else
         auto* set = jsCast<JSSet*>(items.asCell());
         if (set->isIteratorProtocolFastAndNonObservable()) [[likely]] {
             result = tryCreateArrayFromSet(globalObject, set);
             RETURN_IF_EXCEPTION(scope, { });
         }
+#endif
     } else if (items && items.isCell() && items.asCell()->type() == JSMapIteratorType) {
         // For `Array.from(map.keys())`, `Array.from(map.values())`
         auto* mapIterator = jsCast<JSMapIterator*>(items.asCell());
@@ -628,5 +670,66 @@ JSC_DEFINE_HOST_FUNCTION(arrayConstructorPrivateFromFastWithoutMapFn, (JSGlobalO
         return JSValue::encode(result);
     return JSValue::encode(jsUndefined());
 }
+
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+JSC_DEFINE_HOST_FUNCTION(arrayConstructorFromLegacy, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    WIN98_TRACE("arrayConstructorFromLegacy: enter");
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSValue items = callFrame->argument(0);
+    if (items.isUndefinedOrNull())
+        return throwVMTypeError(globalObject, scope, "Array.from requires an array-like object - not null or undefined"_s);
+
+    if (isJSArray(items)) {
+        WIN98_TRACE("arrayConstructorFromLegacy: array fast begin");
+        JSArray* result = tryCloneArrayFromFast<ArrayFillMode::Undefined>(globalObject, items);
+        RETURN_IF_EXCEPTION(scope, { });
+        if (result) {
+            WIN98_TRACE("arrayConstructorFromLegacy: array fast return");
+            return JSValue::encode(result);
+        }
+    }
+
+    if (items.isCell() && items.asCell()->type() == JSSetType) {
+        WIN98_TRACE("arrayConstructorFromLegacy: set fast begin");
+        JSArray* result = tryCreateArrayFromSet(globalObject, jsCast<JSSet*>(items.asCell()));
+        RETURN_IF_EXCEPTION(scope, { });
+        if (result) {
+            WIN98_TRACE("arrayConstructorFromLegacy: set fast return");
+            return JSValue::encode(result);
+        }
+    }
+
+    WIN98_TRACE("arrayConstructorFromLegacy: array-like begin");
+    JSObject* arrayLike = items.toObject(globalObject);
+    RETURN_IF_EXCEPTION(scope, { });
+    uint64_t length = toLength(globalObject, arrayLike);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    if (length > std::numeric_limits<uint32_t>::max()) [[unlikely]] {
+        throwRangeError(globalObject, scope, LengthExceededTheMaximumArrayLengthError);
+        return encodedJSValue();
+    }
+
+    auto* result = constructEmptyArray(globalObject, nullptr, static_cast<uint32_t>(length));
+    RETURN_IF_EXCEPTION(scope, { });
+
+    for (uint64_t index = 0; index < length; ++index) {
+        JSValue value = getProperty(globalObject, arrayLike, index);
+        RETURN_IF_EXCEPTION(scope, { });
+        if (value) {
+            result->putDirectIndex(globalObject, index, value, 0, PutDirectIndexShouldThrow);
+            RETURN_IF_EXCEPTION(scope, { });
+        }
+    }
+
+    scope.release();
+    setLength(globalObject, vm, result, length);
+    WIN98_TRACE("arrayConstructorFromLegacy: array-like return");
+    return JSValue::encode(result);
+}
+#endif
 
 } // namespace JSC

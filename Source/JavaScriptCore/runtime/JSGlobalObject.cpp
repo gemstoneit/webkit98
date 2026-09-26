@@ -332,6 +332,13 @@
 #include "JSCWrapperMap.h"
 #endif
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+
 namespace JSC {
 
 #define CHECK_FEATURE_FLAG_TYPE(capitalName, lowerName, properName, instanceType, jsName, prototypeBase, featureFlag) \
@@ -1032,11 +1039,14 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 void JSGlobalObject::init(VM& vm)
 {
+    WIN98_TRACE("JSGlobalObject::init: enter");
     ASSERT(vm.traps().isDeferringTermination());
     ASSERT(vm.currentThreadIsHoldingAPILock());
     auto catchScope = DECLARE_CATCH_SCOPE(vm);
 
+    WIN98_TRACE("JSGlobalObject::init: convertToDictionary begin");
     convertToDictionary(vm);
+    WIN98_TRACE("JSGlobalObject::init: convertToDictionary end");
 
     m_debugger = nullptr;
 
@@ -1047,10 +1057,14 @@ void JSGlobalObject::init(VM& vm)
     m_consoleClient = checkedInspectorController()->consoleClient().get();
 #endif
 
+    WIN98_TRACE("JSGlobalObject::init: functionPrototype begin");
     m_functionPrototype.set(vm, this, FunctionPrototype::create(vm, FunctionPrototype::createStructure(vm, this, jsNull()))); // The real prototype will be set once ObjectPrototype is created.
+    WIN98_TRACE("JSGlobalObject::init: functionPrototype end");
     m_calleeStructure.set(vm, this, JSCallee::createStructure(vm, this, jsNull()));
 
+    WIN98_TRACE("JSGlobalObject::init: globalLexicalEnvironment begin");
     m_globalLexicalEnvironment.set(vm, this, JSGlobalLexicalEnvironment::create(vm, JSGlobalLexicalEnvironment::createStructure(vm, this), this));
+    WIN98_TRACE("JSGlobalObject::init: globalLexicalEnvironment end");
 
     // Need to create the callee structure (above) before creating the callee.
     JSCallee* globalCallee = JSCallee::create(vm, this, globalScope());
@@ -1061,7 +1075,9 @@ void JSGlobalObject::init(VM& vm)
 
     m_zombieFrameCallee.set(vm, this, JSCallee::create(vm, this, globalScope()));
 
+    WIN98_TRACE("JSGlobalObject::init: hostFunctionStructure begin");
     m_hostFunctionStructure.set(vm, this, JSFunction::createStructure(vm, this, m_functionPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: hostFunctionStructure end");
 
     auto initFunctionStructures = [&] (FunctionStructures& structures) {
         structures.strictFunctionStructure.set(vm, this, JSStrictFunction::createStructure(vm, this, m_functionPrototype.get()));
@@ -1070,8 +1086,12 @@ void JSGlobalObject::init(VM& vm)
         structures.sloppyMethodStructure.set(vm, this, JSSloppyFunction::createStructure(vm, this, m_functionPrototype.get()));
         structures.arrowFunctionStructure.set(vm, this, JSArrowFunction::createStructure(vm, this, m_functionPrototype.get()));
     };
+    WIN98_TRACE("JSGlobalObject::init: builtin function structures begin");
     initFunctionStructures(m_builtinFunctions);
+    WIN98_TRACE("JSGlobalObject::init: builtin function structures end");
+    WIN98_TRACE("JSGlobalObject::init: ordinary function structures begin");
     initFunctionStructures(m_ordinaryFunctions);
+    WIN98_TRACE("JSGlobalObject::init: ordinary function structures end");
     m_boundFunctionStructure.set(vm, this, JSBoundFunction::createStructure(vm, this, m_functionPrototype.get()));
 
     m_customGetterFunctionStructure.initLater(
@@ -1093,10 +1113,33 @@ void JSGlobalObject::init(VM& vm)
     JSFunction* callFunction = nullptr;
     JSFunction* applyFunction = nullptr;
     JSFunction* hasInstanceSymbolFunction = nullptr;
+    WIN98_TRACE("JSGlobalObject::init: addFunctionProperties begin");
     m_functionPrototype->addFunctionProperties(vm, this, &callFunction, &applyFunction, &hasInstanceSymbolFunction);
+    WIN98_TRACE("JSGlobalObject::init: addFunctionProperties end");
     m_objectProtoToStringFunction.initLater(
         [] (const Initializer<JSFunction>& init) {
-            init.set(JSFunction::create(init.vm, init.owner, 0, init.vm.propertyNames->toString.string(), objectProtoFuncToString, ImplementationVisibility::Public, ObjectToStringIntrinsic));
+            WIN98_TRACE("JSGlobalObject::init: objectProtoToStringFunction init begin");
+            WIN98_TRACE("JSGlobalObject::init: objectProtoToStringFunction owner vm begin");
+            VM& ownerVM = init.owner->vm();
+            WIN98_TRACE(ownerVM.propertyNames ? "JSGlobalObject::init: objectProtoToStringFunction owner vm propertyNames nonnull" : "JSGlobalObject::init: objectProtoToStringFunction owner vm propertyNames null");
+            WIN98_TRACE("JSGlobalObject::init: objectProtoToStringFunction propertyNames begin");
+            auto* propertyNames = init.vm.propertyNames;
+            WIN98_TRACE(propertyNames ? "JSGlobalObject::init: objectProtoToStringFunction propertyNames nonnull" : "JSGlobalObject::init: objectProtoToStringFunction propertyNames null");
+            propertyNames = ownerVM.propertyNames;
+            WIN98_TRACE(propertyNames ? "JSGlobalObject::init: objectProtoToStringFunction selected propertyNames nonnull" : "JSGlobalObject::init: objectProtoToStringFunction selected propertyNames null");
+            WIN98_TRACE("JSGlobalObject::init: objectProtoToStringFunction toString identifier begin");
+            auto toStringProperty = propertyNames->toString;
+            WIN98_TRACE("JSGlobalObject::init: objectProtoToStringFunction toString identifier end");
+            WIN98_TRACE("JSGlobalObject::init: objectProtoToStringFunction toString string begin");
+            auto toStringName = toStringProperty.string();
+            WIN98_TRACE("JSGlobalObject::init: objectProtoToStringFunction toString string end");
+            WIN98_TRACE("JSGlobalObject::init: objectProtoToStringFunction JSFunction create begin");
+            auto* function = JSFunction::create(ownerVM, init.owner, 0, toStringName, objectProtoFuncToString, ImplementationVisibility::Public, ObjectToStringIntrinsic);
+            WIN98_TRACE("JSGlobalObject::init: objectProtoToStringFunction JSFunction create end");
+            WIN98_TRACE("JSGlobalObject::init: objectProtoToStringFunction property set begin");
+            init.property.set(ownerVM, init.owner, function);
+            WIN98_TRACE("JSGlobalObject::init: objectProtoToStringFunction property set end");
+            WIN98_TRACE("JSGlobalObject::init: objectProtoToStringFunction init end");
         });
     m_arrayProtoToStringFunction.initLater(
         [] (const Initializer<JSFunction>& init) {
@@ -1121,31 +1164,68 @@ void JSGlobalObject::init(VM& vm)
     Structure* nullSetterFunctionStructure = NullSetterFunction::createStructure(vm, this, m_functionPrototype.get());
     m_nullSetterFunction.set(vm, this, NullSetterFunction::create(vm, nullSetterFunctionStructure, ECMAMode::sloppy()));
     m_nullSetterStrictFunction.set(vm, this, NullSetterFunction::create(vm, nullSetterFunctionStructure, ECMAMode::strict()));
+    WIN98_TRACE("JSGlobalObject::init: ObjectPrototype create begin");
     m_objectPrototype.set(vm, this, ObjectPrototype::create(vm, this, ObjectPrototype::createStructure(vm, this, jsNull())));
+    WIN98_TRACE("JSGlobalObject::init: ObjectPrototype create end");
     // We have to manually set this here because we make it a prototype without transition below.
+    WIN98_TRACE("JSGlobalObject::init: objectPrototype didBecomePrototype begin");
     m_objectPrototype.get()->didBecomePrototype(vm);
-    GetterSetter* protoAccessor = GetterSetter::create(vm, this,
-        JSFunction::create(vm, this, 0, makeString("get "_s, vm.propertyNames->underscoreProto.string()), globalFuncProtoGetter, ImplementationVisibility::Public, UnderscoreProtoIntrinsic),
-        JSFunction::create(vm, this, 0, makeString("set "_s, vm.propertyNames->underscoreProto.string()), globalFuncProtoSetter, ImplementationVisibility::Public));
+    WIN98_TRACE("JSGlobalObject::init: objectPrototype didBecomePrototype end");
+    WIN98_TRACE("JSGlobalObject::init: protoAccessor getter name begin");
+    auto protoGetterName = makeString("get "_s, vm.propertyNames->underscoreProto.string());
+    WIN98_TRACE("JSGlobalObject::init: protoAccessor getter name end");
+    WIN98_TRACE("JSGlobalObject::init: protoAccessor getter function begin");
+    auto* protoGetterFunction = JSFunction::create(vm, this, 0, protoGetterName, globalFuncProtoGetter, ImplementationVisibility::Public, UnderscoreProtoIntrinsic);
+    WIN98_TRACE("JSGlobalObject::init: protoAccessor getter function end");
+    WIN98_TRACE("JSGlobalObject::init: protoAccessor setter name begin");
+    auto protoSetterName = makeString("set "_s, vm.propertyNames->underscoreProto.string());
+    WIN98_TRACE("JSGlobalObject::init: protoAccessor setter name end");
+    WIN98_TRACE("JSGlobalObject::init: protoAccessor setter function begin");
+    auto* protoSetterFunction = JSFunction::create(vm, this, 0, protoSetterName, globalFuncProtoSetter, ImplementationVisibility::Public);
+    WIN98_TRACE("JSGlobalObject::init: protoAccessor setter function end");
+    WIN98_TRACE("JSGlobalObject::init: protoAccessor create begin");
+    GetterSetter* protoAccessor = GetterSetter::create(vm, this, protoGetterFunction, protoSetterFunction);
+    WIN98_TRACE("JSGlobalObject::init: protoAccessor create end");
+    WIN98_TRACE("JSGlobalObject::init: objectPrototype put __proto__ begin");
     m_objectPrototype->putDirectNonIndexAccessorWithoutTransition(vm, vm.propertyNames->underscoreProto, protoAccessor, PropertyAttribute::Accessor | PropertyAttribute::DontEnum);
+    WIN98_TRACE("JSGlobalObject::init: objectPrototype put __proto__ end");
+    WIN98_TRACE("JSGlobalObject::init: functionPrototype setPrototype begin");
     m_functionPrototype->structure()->setPrototypeWithoutTransition(vm, m_objectPrototype.get());
+    WIN98_TRACE("JSGlobalObject::init: functionPrototype setPrototype end");
+    WIN98_TRACE("JSGlobalObject::init: objectStructureForObjectConstructor set begin");
     m_objectStructureForObjectConstructor.set(vm, this, m_structureCache.emptyObjectStructureForPrototype(this, m_objectPrototype.get(), JSFinalObject::defaultInlineCapacity));
+    WIN98_TRACE("JSGlobalObject::init: objectStructureForObjectConstructor set end");
+    WIN98_TRACE("JSGlobalObject::init: objectProtoValueOfFunction set begin");
     m_objectProtoValueOfFunction.set(vm, this, jsCast<JSFunction*>(objectPrototype()->getDirect(vm, vm.propertyNames->valueOf)));
+    WIN98_TRACE("JSGlobalObject::init: objectProtoValueOfFunction set end");
 
     JS_GLOBAL_OBJECT_ADDITIONS_3;
 
+    WIN98_TRACE("JSGlobalObject::init: arraySpeciesGetterSetter set begin");
     m_arraySpeciesGetterSetter.set(vm, this, GetterSetter::create(vm, this, JSFunction::create(vm, this, 0, "get [Symbol.species]"_s, globalFuncSpeciesGetter, ImplementationVisibility::Public, SpeciesGetterIntrinsic), nullptr));
+    WIN98_TRACE("JSGlobalObject::init: arraySpeciesGetterSetter set end");
+    WIN98_TRACE("JSGlobalObject::init: typedArraySpeciesGetterSetter set begin");
     m_typedArraySpeciesGetterSetter.set(vm, this, GetterSetter::create(vm, this, JSFunction::create(vm, this, 0, "get [Symbol.species]"_s, globalFuncSpeciesGetter, ImplementationVisibility::Public, SpeciesGetterIntrinsic), nullptr));
+    WIN98_TRACE("JSGlobalObject::init: typedArraySpeciesGetterSetter set end");
+    WIN98_TRACE("JSGlobalObject::init: arrayBufferSpeciesGetterSetter set begin");
     m_arrayBufferSpeciesGetterSetter.set(vm, this, GetterSetter::create(vm, this, JSFunction::create(vm, this, 0, "get [Symbol.species]"_s, globalFuncSpeciesGetter, ImplementationVisibility::Public, SpeciesGetterIntrinsic), nullptr));
+    WIN98_TRACE("JSGlobalObject::init: arrayBufferSpeciesGetterSetter set end");
+    WIN98_TRACE("JSGlobalObject::init: sharedArrayBufferSpeciesGetterSetter set begin");
     m_sharedArrayBufferSpeciesGetterSetter.set(vm, this, GetterSetter::create(vm, this, JSFunction::create(vm, this, 0, "get [Symbol.species]"_s, globalFuncSpeciesGetter, ImplementationVisibility::Public, SpeciesGetterIntrinsic), nullptr));
+    WIN98_TRACE("JSGlobalObject::init: sharedArrayBufferSpeciesGetterSetter set end");
+    WIN98_TRACE("JSGlobalObject::init: promiseSpeciesGetterSetter set begin");
     m_promiseSpeciesGetterSetter.set(vm, this, GetterSetter::create(vm, this, JSFunction::create(vm, this, 0, "get [Symbol.species]"_s, globalFuncSpeciesGetter, ImplementationVisibility::Public, SpeciesGetterIntrinsic), nullptr));
+    WIN98_TRACE("JSGlobalObject::init: promiseSpeciesGetterSetter set end");
 
+    WIN98_TRACE("JSGlobalObject::init: throwTypeErrorArgumentsCalleeGetterSetter initLater begin");
     m_throwTypeErrorArgumentsCalleeGetterSetter.initLater(
         [] (const Initializer<GetterSetter>& init) {
             JSFunction* thrower = JSFunction::create(init.vm, init.owner, 0, emptyString(), globalFuncThrowTypeErrorArgumentsCalleeAndCaller, ImplementationVisibility::Public);
             thrower->freeze(init.vm);
             init.set(GetterSetter::create(init.vm, init.owner, thrower, thrower));
         });
+    WIN98_TRACE("JSGlobalObject::init: throwTypeErrorArgumentsCalleeGetterSetter initLater end");
+    WIN98_TRACE("JSGlobalObject::init: typedArrayProto initLater begin");
     m_typedArrayProto.initLater(
         [] (const Initializer<JSTypedArrayViewPrototype>& init) {
             init.set(JSTypedArrayViewPrototype::create(init.vm, init.owner, JSTypedArrayViewPrototype::createStructure(init.vm, init.owner, init.owner->m_objectPrototype.get())));
@@ -1153,6 +1233,8 @@ void JSGlobalObject::init(VM& vm)
             // Make sure that the constructor gets initialized, too.
             init.owner->m_typedArraySuperConstructor.get(init.owner);
         });
+    WIN98_TRACE("JSGlobalObject::init: typedArrayProto initLater end");
+    WIN98_TRACE("JSGlobalObject::init: typedArraySuperConstructor initLater begin");
     m_typedArraySuperConstructor.initLater(
         [] (const Initializer<JSTypedArrayViewConstructor>& init) {
             JSTypedArrayViewPrototype* prototype = init.owner->m_typedArrayProto.get(init.owner);
@@ -1160,8 +1242,10 @@ void JSGlobalObject::init(VM& vm)
             prototype->putDirectWithoutTransition(init.vm, init.vm.propertyNames->constructor, constructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
             init.set(constructor);
         });
+    WIN98_TRACE("JSGlobalObject::init: typedArraySuperConstructor initLater end");
     
 #define INIT_TYPED_ARRAY_LATER(type) \
+    WIN98_TRACE("JSGlobalObject::init: typedArray " #type " class initLater begin"); \
     m_typedArray ## type.initLater( \
         [] (LazyClassStructure::Initializer& init) { \
             init.setPrototype(JS ## type ## ArrayPrototype::create(init.vm, init.global, JS ## type ## ArrayPrototype::createStructure(init.vm, init.global, init.global->m_typedArrayProto.get(init.global)))); \
@@ -1169,17 +1253,23 @@ void JSGlobalObject::init(VM& vm)
             init.setConstructor(JS ## type ## ArrayConstructor::create(init.vm, init.global, JS ## type ## ArrayConstructor::createStructure(init.vm, init.global, init.global->m_typedArraySuperConstructor.get(init.global)), init.prototype, #type "Array"_s)); \
             init.global->typedArrayStructure(Type##type, /* isResizableOrGrowableShared */ true); /* Initialize resizable Structure too */ \
         }); \
+    WIN98_TRACE("JSGlobalObject::init: typedArray " #type " class initLater end"); \
+    WIN98_TRACE("JSGlobalObject::init: typedArray " #type " resizable structure initLater begin"); \
     m_resizableOrGrowableSharedTypedArray ## type ## Structure.initLater( \
         [] (const Initializer<Structure>& init) { \
             init.set(JSResizableOrGrowableShared ## type ## Array::createStructure(init.vm, init.owner, init.owner->typedArrayPrototype(Type##type))); \
             init.owner->typedArrayStructure(Type##type, /* isResizableOrGrowableShared */ false); /* Initialize non-resizable Structure too */ \
         }); \
+    WIN98_TRACE("JSGlobalObject::init: typedArray " #type " resizable structure initLater end"); \
+    WIN98_TRACE("JSGlobalObject::init: typedArray " #type " link constant initLater begin"); \
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::type##Array)].initLater([](const Initializer<JSCell>& init) { \
             init.set(jsCast<JSGlobalObject*>(init.owner)->typedArrayConstructor(TypedArrayType::Type##type)); \
-        });
+        }); \
+    WIN98_TRACE("JSGlobalObject::init: typedArray " #type " link constant initLater end");
     FOR_EACH_TYPED_ARRAY_TYPE_EXCLUDING_DATA_VIEW(INIT_TYPED_ARRAY_LATER)
 #undef INIT_TYPED_ARRAY_LATER
     
+    WIN98_TRACE("JSGlobalObject::init: DataView class initLater begin");
     m_typedArrayDataView.initLater(
         [] (LazyClassStructure::Initializer& init) {
             init.setPrototype(JSDataViewPrototype::create(init.vm, init.global, JSDataViewPrototype::createStructure(init.vm, init.global, init.global->m_objectPrototype.get())));
@@ -1187,453 +1277,797 @@ void JSGlobalObject::init(VM& vm)
             init.setConstructor(JSDataViewConstructor::create(init.vm, init.global, JSDataViewConstructor::createStructure(init.vm, init.global, init.global->m_functionPrototype.get()), init.prototype, "DataView"_s));
             init.global->typedArrayStructure(TypeDataView, /* isResizableOrGrowableShared */ true); /* Initialize resizable Structure too */
         });
+    WIN98_TRACE("JSGlobalObject::init: DataView class initLater end");
+    WIN98_TRACE("JSGlobalObject::init: DataView resizable structure initLater begin");
     m_resizableOrGrowableSharedTypedArrayDataViewStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(JSResizableOrGrowableSharedDataView::createStructure(init.vm, init.owner, init.owner->typedArrayPrototype(TypeDataView)));
             init.owner->typedArrayStructure(TypeDataView, /* isResizableOrGrowableShared */ false); /* Initialize non-resizable Structure too */
         });
+    WIN98_TRACE("JSGlobalObject::init: DataView resizable structure initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: lexicalEnvironmentStructure set begin");
     m_lexicalEnvironmentStructure.set(vm, this, JSLexicalEnvironment::createStructure(vm, this));
+    WIN98_TRACE("JSGlobalObject::init: lexicalEnvironmentStructure set end");
+    WIN98_TRACE("JSGlobalObject::init: moduleEnvironmentStructure initLater begin");
     m_moduleEnvironmentStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(JSModuleEnvironment::createStructure(init.vm, init.owner));
         });
+    WIN98_TRACE("JSGlobalObject::init: moduleEnvironmentStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: strictEvalActivationStructure initLater begin");
     m_strictEvalActivationStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(StrictEvalActivation::createStructure(init.vm, init.owner, jsNull()));
         });
+    WIN98_TRACE("JSGlobalObject::init: strictEvalActivationStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: debuggerScopeStructure initLater begin");
     m_debuggerScopeStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(DebuggerScope::createStructure(init.vm, init.owner));
         });
+    WIN98_TRACE("JSGlobalObject::init: debuggerScopeStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: withScopeStructure initLater begin");
     m_withScopeStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(JSWithScope::createStructure(init.vm, init.owner, jsNull()));
         });
+    WIN98_TRACE("JSGlobalObject::init: withScopeStructure initLater end");
     
+    WIN98_TRACE("JSGlobalObject::init: nullPrototypeObjectStructure set begin");
     m_nullPrototypeObjectStructure.set(vm, this, JSFinalObject::createStructure(vm, this, jsNull(), JSFinalObject::defaultInlineCapacity));
+    WIN98_TRACE("JSGlobalObject::init: nullPrototypeObjectStructure set end");
     
+    WIN98_TRACE("JSGlobalObject::init: callbackFunctionStructure initLater begin");
     m_callbackFunctionStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(JSCallbackFunction::createStructure(init.vm, init.owner, init.owner->m_functionPrototype.get()));
         });
+    WIN98_TRACE("JSGlobalObject::init: callbackFunctionStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: directArgumentsStructure set begin");
     m_directArgumentsStructure.set(vm, this, DirectArguments::createStructure(vm, this, m_objectPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: directArgumentsStructure set end");
+    WIN98_TRACE("JSGlobalObject::init: scopedArgumentsStructure set begin");
     m_scopedArgumentsStructure.set(vm, this, ScopedArguments::createStructure(vm, this, m_objectPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: scopedArgumentsStructure set end");
+    WIN98_TRACE("JSGlobalObject::init: clonedArgumentsStructure set begin");
     m_clonedArgumentsStructure.set(vm, this, ClonedArguments::createStructure(vm, this, m_objectPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: clonedArgumentsStructure set end");
+    WIN98_TRACE("JSGlobalObject::init: callbackConstructorStructure initLater begin");
     m_callbackConstructorStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(JSCallbackConstructor::createStructure(init.vm, init.owner, init.owner->m_objectPrototype.get()));
         });
+    WIN98_TRACE("JSGlobalObject::init: callbackConstructorStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: callbackObjectStructure initLater begin");
     m_callbackObjectStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(JSCallbackObject<JSNonFinalObject>::createStructure(init.vm, init.owner, init.owner->m_objectPrototype.get()));
         });
+    WIN98_TRACE("JSGlobalObject::init: callbackObjectStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: rawJSONObjectStructure initLater begin");
     m_rawJSONObjectStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(JSRawJSONObject::createStructure(init.vm, init.owner, jsNull()));
         });
+    WIN98_TRACE("JSGlobalObject::init: rawJSONObjectStructure initLater end");
 
 #if JSC_OBJC_API_ENABLED
+    WIN98_TRACE("JSGlobalObject::init: objcCallbackFunctionStructure initLater begin");
     m_objcCallbackFunctionStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(ObjCCallbackFunction::createStructure(init.vm, init.owner, init.owner->m_functionPrototype.get()));
         });
+    WIN98_TRACE("JSGlobalObject::init: objcCallbackFunctionStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: objcWrapperObjectStructure initLater begin");
     m_objcWrapperObjectStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(JSCallbackObject<JSAPIWrapperObject>::createStructure(init.vm, init.owner, init.owner->m_objectPrototype.get()));
         });
+    WIN98_TRACE("JSGlobalObject::init: objcWrapperObjectStructure initLater end");
 #endif
 #ifdef JSC_GLIB_API_ENABLED
+    WIN98_TRACE("JSGlobalObject::init: glibCallbackFunctionStructure initLater begin");
     m_glibCallbackFunctionStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(JSCCallbackFunction::createStructure(init.vm, init.owner, init.owner->m_functionPrototype.get()));
         });
+    WIN98_TRACE("JSGlobalObject::init: glibCallbackFunctionStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: glibWrapperObjectStructure initLater begin");
     m_glibWrapperObjectStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(JSCallbackObject<JSAPIWrapperObject>::createStructure(init.vm, init.owner, init.owner->m_objectPrototype.get()));
         });
+    WIN98_TRACE("JSGlobalObject::init: glibWrapperObjectStructure initLater end");
 #endif
+    WIN98_TRACE("JSGlobalObject::init: arrayPrototype set begin");
     m_arrayPrototype.set(vm, this, ArrayPrototype::create(vm, this, ArrayPrototype::createStructure(vm, this, m_objectPrototype.get())));
+    WIN98_TRACE("JSGlobalObject::init: arrayPrototype set end");
     
+    WIN98_TRACE("JSGlobalObject::init: array structure Undecided set begin");
     m_originalArrayStructureForIndexingShape[arrayIndexFromIndexingType(UndecidedShape)].set(vm, this, JSArray::createStructure(vm, this, m_arrayPrototype.get(), ArrayWithUndecided));
+    WIN98_TRACE("JSGlobalObject::init: array structure Undecided set end");
+    WIN98_TRACE("JSGlobalObject::init: array structure Int32 set begin");
     m_originalArrayStructureForIndexingShape[arrayIndexFromIndexingType(Int32Shape)].set(vm, this, JSArray::createStructure(vm, this, m_arrayPrototype.get(), ArrayWithInt32));
+    WIN98_TRACE("JSGlobalObject::init: array structure Int32 set end");
 
+    WIN98_TRACE("JSGlobalObject::init: array structure Contiguous create begin");
     Structure* arrayWithContiguousStructure = JSArray::createStructure(vm, this, m_arrayPrototype.get(), ArrayWithContiguous);
+    WIN98_TRACE("JSGlobalObject::init: array structure Contiguous create end");
+    WIN98_TRACE("JSGlobalObject::init: array structure Double set begin");
     m_originalArrayStructureForIndexingShape[arrayIndexFromIndexingType(DoubleShape)].set(vm, this,
         Options::allowDoubleShape() ? JSArray::createStructure(vm, this, m_arrayPrototype.get(), ArrayWithDouble) : arrayWithContiguousStructure);
+    WIN98_TRACE("JSGlobalObject::init: array structure Double set end");
+    WIN98_TRACE("JSGlobalObject::init: array structure Contiguous set begin");
     m_originalArrayStructureForIndexingShape[arrayIndexFromIndexingType(ContiguousShape)].set(vm, this, arrayWithContiguousStructure);
+    WIN98_TRACE("JSGlobalObject::init: array structure Contiguous set end");
 
+    WIN98_TRACE("JSGlobalObject::init: array structure ArrayStorage set begin");
     m_originalArrayStructureForIndexingShape[arrayIndexFromIndexingType(ArrayStorageShape)].set(vm, this, JSArray::createStructure(vm, this, m_arrayPrototype.get(), ArrayWithArrayStorage));
+    WIN98_TRACE("JSGlobalObject::init: array structure ArrayStorage set end");
+    WIN98_TRACE("JSGlobalObject::init: array structure SlowPutArrayStorage set begin");
     m_originalArrayStructureForIndexingShape[arrayIndexFromIndexingType(SlowPutArrayStorageShape)].set(vm, this, JSArray::createStructure(vm, this, m_arrayPrototype.get(), ArrayWithSlowPutArrayStorage));
+    WIN98_TRACE("JSGlobalObject::init: array structure SlowPutArrayStorage set end");
+    WIN98_TRACE("JSGlobalObject::init: array structure CopyOnWriteInt32 set begin");
     m_originalArrayStructureForIndexingShape[arrayIndexFromIndexingType(CopyOnWriteArrayWithInt32)].set(vm, this, JSArray::createStructure(vm, this, m_arrayPrototype.get(), CopyOnWriteArrayWithInt32));
+    WIN98_TRACE("JSGlobalObject::init: array structure CopyOnWriteInt32 set end");
 
+    WIN98_TRACE("JSGlobalObject::init: array structure CopyOnWriteContiguous create begin");
     Structure* copyOnWriteArrayWithContiguous = JSArray::createStructure(vm, this, m_arrayPrototype.get(), CopyOnWriteArrayWithContiguous);
+    WIN98_TRACE("JSGlobalObject::init: array structure CopyOnWriteContiguous create end");
+    WIN98_TRACE("JSGlobalObject::init: array structure CopyOnWriteDouble set begin");
     m_originalArrayStructureForIndexingShape[arrayIndexFromIndexingType(CopyOnWriteArrayWithDouble)].set(vm, this,
         Options::allowDoubleShape() ? JSArray::createStructure(vm, this, m_arrayPrototype.get(), CopyOnWriteArrayWithDouble) : copyOnWriteArrayWithContiguous);
+    WIN98_TRACE("JSGlobalObject::init: array structure CopyOnWriteDouble set end");
+    WIN98_TRACE("JSGlobalObject::init: array structure CopyOnWriteContiguous set begin");
     m_originalArrayStructureForIndexingShape[arrayIndexFromIndexingType(CopyOnWriteArrayWithContiguous)].set(vm, this, copyOnWriteArrayWithContiguous);
+    WIN98_TRACE("JSGlobalObject::init: array structure CopyOnWriteContiguous set end");
 
+    WIN98_TRACE("JSGlobalObject::init: array allocation structures copy begin");
     for (unsigned i = 0; i < NumberOfArrayIndexingModes; ++i)
         m_arrayStructureForIndexingShapeDuringAllocation[i] = m_originalArrayStructureForIndexingShape[i];
+    WIN98_TRACE("JSGlobalObject::init: array allocation structures copy end");
 
+    WIN98_TRACE("JSGlobalObject::init: shadowRealmPrototype set begin");
     m_shadowRealmPrototype.set(vm, this, ShadowRealmPrototype::create(vm, ShadowRealmPrototype::createStructure(vm, this, m_objectPrototype.get())));
+    WIN98_TRACE("JSGlobalObject::init: shadowRealmPrototype set end");
+    WIN98_TRACE("JSGlobalObject::init: shadowRealmObjectStructure set begin");
     m_shadowRealmObjectStructure.set(vm, this, ShadowRealmObject::createStructure(vm, this, m_shadowRealmPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: shadowRealmObjectStructure set end");
 
+    WIN98_TRACE("JSGlobalObject::init: regExpPrototype set begin");
     m_regExpPrototype.set(vm, this, RegExpPrototype::create(vm, this, RegExpPrototype::createStructure(vm, this, m_objectPrototype.get())));
+    WIN98_TRACE("JSGlobalObject::init: regExpPrototype set end");
+    WIN98_TRACE("JSGlobalObject::init: regExpStructure set begin");
     m_regExpStructure.set(vm, this, RegExpObject::createStructure(vm, this, m_regExpPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: regExpStructure set end");
+    WIN98_TRACE("JSGlobalObject::init: regExpMatchesArrayStructure set begin");
     m_regExpMatchesArrayStructure.set(vm, this, createRegExpMatchesArrayStructure(vm, this));
+    WIN98_TRACE("JSGlobalObject::init: regExpMatchesArrayStructure set end");
+    WIN98_TRACE("JSGlobalObject::init: regExpMatchesArrayWithIndicesStructure set begin");
     m_regExpMatchesArrayWithIndicesStructure.set(vm, this, createRegExpMatchesArrayWithIndicesStructure(vm, this));
+    WIN98_TRACE("JSGlobalObject::init: regExpMatchesArrayWithIndicesStructure set end");
+    WIN98_TRACE("JSGlobalObject::init: regExpMatchesIndicesArrayStructure set begin");
     m_regExpMatchesIndicesArrayStructure.set(vm, this, createRegExpMatchesIndicesArrayStructure(vm, this));
+    WIN98_TRACE("JSGlobalObject::init: regExpMatchesIndicesArrayStructure set end");
 
+    WIN98_TRACE("JSGlobalObject::init: trustedScriptStructure set begin");
     m_trustedScriptStructure.setMayBeNull(vm, this, globalObjectMethodTable()->trustedScriptStructure(this));
+    WIN98_TRACE("JSGlobalObject::init: trustedScriptStructure set end");
 
+    WIN98_TRACE("JSGlobalObject::init: moduleRecordStructure initLater begin");
     m_moduleRecordStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(JSModuleRecord::createStructure(init.vm, init.owner, jsNull()));
         });
+    WIN98_TRACE("JSGlobalObject::init: moduleRecordStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: syntheticModuleRecordStructure initLater begin");
     m_syntheticModuleRecordStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(SyntheticModuleRecord::createStructure(init.vm, init.owner, jsNull()));
         });
+    WIN98_TRACE("JSGlobalObject::init: syntheticModuleRecordStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: moduleNamespaceObjectStructure initLater begin");
     m_moduleNamespaceObjectStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(JSModuleNamespaceObject::createStructure(init.vm, init.owner, jsNull()));
         });
+    WIN98_TRACE("JSGlobalObject::init: moduleNamespaceObjectStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: proxyObjectStructure initLater begin");
     m_proxyObjectStructure.initLater(
         [] (const Initializer<Structure>& init) {
             bool isCallable = false;
             init.set(ProxyObject::createStructure(init.vm, init.owner, jsNull(), isCallable));
         });
+    WIN98_TRACE("JSGlobalObject::init: proxyObjectStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: callableProxyObjectStructure initLater begin");
     m_callableProxyObjectStructure.initLater(
         [] (const Initializer<Structure>& init) {
             bool isCallable = true;
             init.set(ProxyObject::createStructure(init.vm, init.owner, jsNull(), isCallable));
         });
+    WIN98_TRACE("JSGlobalObject::init: callableProxyObjectStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: proxyRevokeStructure initLater begin");
     m_proxyRevokeStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(ProxyRevoke::createStructure(init.vm, init.owner, init.owner->m_functionPrototype.get()));
         });
+    WIN98_TRACE("JSGlobalObject::init: proxyRevokeStructure initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: parseIntFunction initLater begin");
     m_parseIntFunction.initLater(
         [] (const Initializer<JSFunction>& init) {
             init.set(JSFunction::create(init.vm, init.owner, 2, init.vm.propertyNames->parseInt.string(), globalFuncParseInt, ImplementationVisibility::Public, ParseIntIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: parseIntFunction initLater end");
+    WIN98_TRACE("JSGlobalObject::init: parseFloatFunction initLater begin");
     m_parseFloatFunction.initLater(
         [] (const Initializer<JSFunction>& init) {
             init.set(JSFunction::create(init.vm, init.owner, 1, init.vm.propertyNames->parseFloat.string(), globalFuncParseFloat, ImplementationVisibility::Public));
         });
+    WIN98_TRACE("JSGlobalObject::init: parseFloatFunction initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: sharedArrayBufferStructure initLater begin");
     m_sharedArrayBufferStructure.initLater(
         [] (LazyClassStructure::Initializer& init) {
             init.setPrototype(JSArrayBufferPrototype::create(init.vm, init.global, JSArrayBufferPrototype::createStructure(init.vm, init.global, init.global->m_objectPrototype.get()), ArrayBufferSharingMode::Shared));
             init.setStructure(JSArrayBuffer::createStructure(init.vm, init.global, init.prototype));
             init.setConstructor(JSSharedArrayBufferConstructor::create(init.vm, JSSharedArrayBufferConstructor::createStructure(init.vm, init.global, init.global->m_functionPrototype.get()), jsCast<JSArrayBufferPrototype*>(init.prototype)));
         });
+    WIN98_TRACE("JSGlobalObject::init: sharedArrayBufferStructure initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: disposableStackStructure initLater begin");
     m_disposableStackStructure.initLater(
         [] (LazyClassStructure::Initializer& init) -> void {
             init.setPrototype(DisposableStackPrototype::create(init.vm, init.global, DisposableStackPrototype::createStructure(init.vm, init.global, init.global->m_objectPrototype.get())));
             init.setStructure(JSDisposableStack::createStructure(init.vm, init.global, init.prototype));
             init.setConstructor(DisposableStackConstructor::create(init.vm, init.global, DisposableStackConstructor::createStructure(init.vm, init.global, init.global->m_functionPrototype.get()), jsCast<DisposableStackPrototype*>(init.prototype)));
         });
+    WIN98_TRACE("JSGlobalObject::init: disposableStackStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: asyncDisposableStackStructure initLater begin");
     m_asyncDisposableStackStructure.initLater(
         [] (LazyClassStructure::Initializer& init) -> void {
             init.setPrototype(AsyncDisposableStackPrototype::create(init.vm, init.global, AsyncDisposableStackPrototype::createStructure(init.vm, init.global, init.global->m_objectPrototype.get())));
             init.setStructure(JSAsyncDisposableStack::createStructure(init.vm, init.global, init.prototype));
             init.setConstructor(AsyncDisposableStackConstructor::create(init.vm, init.global, AsyncDisposableStackConstructor::createStructure(init.vm, init.global, init.global->m_functionPrototype.get()), jsCast<AsyncDisposableStackPrototype*>(init.prototype)));
         });
+    WIN98_TRACE("JSGlobalObject::init: asyncDisposableStackStructure initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: iteratorPrototype set begin");
     m_iteratorPrototype.set(vm, this, JSIteratorPrototype::create(vm, this, JSIteratorPrototype::createStructure(vm, this, m_objectPrototype.get())));
+    WIN98_TRACE("JSGlobalObject::init: iteratorPrototype set end");
 
+    WIN98_TRACE("JSGlobalObject::init: iteratorStructure set begin");
     m_iteratorStructure.set(vm, this, JSIterator::createStructure(vm, this, m_iteratorPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: iteratorStructure set end");
 
+    WIN98_TRACE("JSGlobalObject::init: iteratorHelperPrototype set begin");
     m_iteratorHelperPrototype.set(vm, this, JSIteratorHelperPrototype::create(vm, this, JSIteratorHelperPrototype::createStructure(vm, this, m_iteratorPrototype.get())));
+    WIN98_TRACE("JSGlobalObject::init: iteratorHelperPrototype set end");
+    WIN98_TRACE("JSGlobalObject::init: iteratorHelperStructure set begin");
     m_iteratorHelperStructure.set(vm, this, JSIteratorHelper::createStructure(vm, this, m_iteratorHelperPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: iteratorHelperStructure set end");
 
+    WIN98_TRACE("JSGlobalObject::init: asyncIteratorPrototype set begin");
     m_asyncIteratorPrototype.set(vm, this, AsyncIteratorPrototype::create(vm, this, AsyncIteratorPrototype::createStructure(vm, this, m_objectPrototype.get())));
+    WIN98_TRACE("JSGlobalObject::init: asyncIteratorPrototype set end");
 
+    WIN98_TRACE("JSGlobalObject::init: generatorPrototype set begin");
     m_generatorPrototype.set(vm, this, GeneratorPrototype::create(vm, this, GeneratorPrototype::createStructure(vm, this, m_iteratorPrototype.get())));
+    WIN98_TRACE("JSGlobalObject::init: generatorPrototype set end");
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorPrototype set begin");
     m_asyncGeneratorPrototype.set(vm, this, AsyncGeneratorPrototype::create(vm, this, AsyncGeneratorPrototype::createStructure(vm, this, m_asyncIteratorPrototype.get())));
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorPrototype set end");
 
+    WIN98_TRACE("JSGlobalObject::init: arrayIteratorPrototype create begin");
     auto* arrayIteratorPrototype = ArrayIteratorPrototype::create(vm, this, ArrayIteratorPrototype::createStructure(vm, this, m_iteratorPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: arrayIteratorPrototype create end");
+    WIN98_TRACE("JSGlobalObject::init: arrayIteratorPrototype set begin");
     m_arrayIteratorPrototype.set(vm, this, arrayIteratorPrototype);
+    WIN98_TRACE("JSGlobalObject::init: arrayIteratorPrototype set end");
+    WIN98_TRACE("JSGlobalObject::init: arrayIteratorStructure set begin");
     m_arrayIteratorStructure.set(vm, this, JSArrayIterator::createStructure(vm, this, arrayIteratorPrototype));
+    WIN98_TRACE("JSGlobalObject::init: arrayIteratorStructure set end");
 
+    WIN98_TRACE("JSGlobalObject::init: mapIteratorPrototype create begin");
     auto* mapIteratorPrototype = MapIteratorPrototype::create(vm, this, MapIteratorPrototype::createStructure(vm, this, m_iteratorPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: mapIteratorPrototype create end");
+    WIN98_TRACE("JSGlobalObject::init: mapIteratorPrototype set begin");
     m_mapIteratorPrototype.set(vm, this, mapIteratorPrototype);
+    WIN98_TRACE("JSGlobalObject::init: mapIteratorPrototype set end");
+    WIN98_TRACE("JSGlobalObject::init: mapIteratorStructure set begin");
     m_mapIteratorStructure.set(vm, this, JSMapIterator::createStructure(vm, this, mapIteratorPrototype));
+    WIN98_TRACE("JSGlobalObject::init: mapIteratorStructure set end");
 
+    WIN98_TRACE("JSGlobalObject::init: setIteratorPrototype create begin");
     auto* setIteratorPrototype = SetIteratorPrototype::create(vm, this, SetIteratorPrototype::createStructure(vm, this, m_iteratorPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: setIteratorPrototype create end");
+    WIN98_TRACE("JSGlobalObject::init: setIteratorPrototype set begin");
     m_setIteratorPrototype.set(vm, this, setIteratorPrototype);
+    WIN98_TRACE("JSGlobalObject::init: setIteratorPrototype set end");
+    WIN98_TRACE("JSGlobalObject::init: setIteratorStructure set begin");
     m_setIteratorStructure.set(vm, this, JSSetIterator::createStructure(vm, this, setIteratorPrototype));
+    WIN98_TRACE("JSGlobalObject::init: setIteratorStructure set end");
 
+    WIN98_TRACE("JSGlobalObject::init: wrapForValidIteratorPrototype create begin");
     auto* wrapForValidIteratorPrototype = WrapForValidIteratorPrototype::create(vm, this, WrapForValidIteratorPrototype::createStructure(vm, this, m_iteratorPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: wrapForValidIteratorPrototype create end");
+    WIN98_TRACE("JSGlobalObject::init: wrapForValidIteratorStructure set begin");
     m_wrapForValidIteratorStructure.set(vm, this, JSWrapForValidIterator::createStructure(vm, this, wrapForValidIteratorPrototype));
+    WIN98_TRACE("JSGlobalObject::init: wrapForValidIteratorStructure set end");
 
+    WIN98_TRACE("JSGlobalObject::init: asyncFromSyncIteratorPrototype create begin");
     auto* asyncFromSyncIteratorPrototype = AsyncFromSyncIteratorPrototype::create(vm, this, AsyncFromSyncIteratorPrototype::createStructure(vm, this, m_iteratorPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: asyncFromSyncIteratorPrototype create end");
+    WIN98_TRACE("JSGlobalObject::init: asyncFromSyncIteratorStructure set begin");
     m_asyncFromSyncIteratorStructure.set(vm, this, JSAsyncFromSyncIterator::createStructure(vm, this, asyncFromSyncIteratorPrototype));
+    WIN98_TRACE("JSGlobalObject::init: asyncFromSyncIteratorStructure set end");
 
+    WIN98_TRACE("JSGlobalObject::init: regExpStringIteratorPrototype create begin");
     auto* regExpStringIteratorPrototype = RegExpStringIteratorPrototype::create(vm, this, RegExpStringIteratorPrototype::createStructure(vm, this, m_iteratorPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: regExpStringIteratorPrototype create end");
+    WIN98_TRACE("JSGlobalObject::init: regExpStringIteratorStructure set begin");
     m_regExpStringIteratorStructure.set(vm, this, JSRegExpStringIterator::createStructure(vm, this, regExpStringIteratorPrototype));
+    WIN98_TRACE("JSGlobalObject::init: regExpStringIteratorStructure set end");
 
+    WIN98_TRACE("JSGlobalObject::init: sentinelString link constant set begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::sentinelString)].set(vm, this, vm.smallStrings.sentinelString());
+    WIN98_TRACE("JSGlobalObject::init: sentinelString link constant set end");
 
+    WIN98_TRACE("JSGlobalObject::init: defaultPromiseThen create begin");
     JSFunction* defaultPromiseThen = JSFunction::create(vm, this, 2, vm.propertyNames->then.impl(), promiseProtoFuncThen, ImplementationVisibility::Public, PromisePrototypeThenIntrinsic);
+    WIN98_TRACE("JSGlobalObject::init: defaultPromiseThen create end");
+    WIN98_TRACE("JSGlobalObject::init: defaultPromiseThen link constant set begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::defaultPromiseThen)].set(vm, this, defaultPromiseThen);
+    WIN98_TRACE("JSGlobalObject::init: defaultPromiseThen link constant set end");
 
 #define CREATE_PROTOTYPE_FOR_SIMPLE_TYPE(capitalName, lowerName, properName, instanceType, jsName, prototypeBase, featureFlag) if (featureFlag) { \
+        WIN98_TRACE("JSGlobalObject::init: simple type " #capitalName " begin"); \
         m_ ## lowerName ## Prototype.set(vm, this, capitalName##Prototype::create(vm, this, capitalName##Prototype::createStructure(vm, this, m_ ## prototypeBase ## Prototype.get()))); \
+        WIN98_TRACE("JSGlobalObject::init: simple type " #capitalName " prototype set end"); \
         m_ ## properName ## Structure.set(vm, this, instanceType::createStructure(vm, this, m_ ## lowerName ## Prototype.get())); \
+        WIN98_TRACE("JSGlobalObject::init: simple type " #capitalName " structure set end"); \
     }
     
+    WIN98_TRACE("JSGlobalObject::init: simple builtin type batch begin");
     FOR_EACH_SIMPLE_BUILTIN_TYPE(CREATE_PROTOTYPE_FOR_SIMPLE_TYPE)
+    WIN98_TRACE("JSGlobalObject::init: simple builtin type batch end");
+    WIN98_TRACE("JSGlobalObject::init: builtin derived iterator type batch begin");
     FOR_EACH_BUILTIN_DERIVED_ITERATOR_TYPE(CREATE_PROTOTYPE_FOR_SIMPLE_TYPE)
+    WIN98_TRACE("JSGlobalObject::init: builtin derived iterator type batch end");
     
 #undef CREATE_PROTOTYPE_FOR_SIMPLE_TYPE
 
 #define CREATE_PROTOTYPE_FOR_LAZY_TYPE(capitalName, lowerName, properName, instanceType, jsName, prototypeBase, featureFlag) if (featureFlag) {  \
+    WIN98_TRACE("JSGlobalObject::init: lazy type " #capitalName " initLater begin"); \
     m_ ## properName ## Structure.initLater(\
         [] (LazyClassStructure::Initializer& init) { \
             init.setPrototype(capitalName##Prototype::create(init.vm, init.global, capitalName##Prototype::createStructure(init.vm, init.global, init.global->m_ ## prototypeBase ## Prototype.get()))); \
             init.setStructure(instanceType::createStructure(init.vm, init.global, init.prototype)); \
             init.setConstructor(capitalName ## Constructor::create(init.vm, capitalName ## Constructor::createStructure(init.vm, init.global, init.global->m_functionPrototype.get()), jsCast<capitalName ## Prototype*>(init.prototype))); \
         }); \
+    WIN98_TRACE("JSGlobalObject::init: lazy type " #capitalName " initLater end"); \
     }
     
+    WIN98_TRACE("JSGlobalObject::init: lazy builtin type batch begin");
     FOR_EACH_LAZY_BUILTIN_TYPE(CREATE_PROTOTYPE_FOR_LAZY_TYPE)
+    WIN98_TRACE("JSGlobalObject::init: lazy builtin type batch end");
 
 #undef CREATE_PROTOTYPE_FOR_LAZY_TYPE
-    
+	    
     // Constructors
 
+    WIN98_TRACE("JSGlobalObject::init: ObjectConstructor create begin");
     ObjectConstructor* objectConstructor = ObjectConstructor::create(vm, this, ObjectConstructor::createStructure(vm, this, m_functionPrototype.get()), m_objectPrototype.get());
+    WIN98_TRACE("JSGlobalObject::init: ObjectConstructor create end");
+    WIN98_TRACE("JSGlobalObject::init: ObjectConstructor set begin");
     m_objectConstructor.set(vm, this, objectConstructor);
+    WIN98_TRACE("JSGlobalObject::init: ObjectConstructor set end");
+    WIN98_TRACE("JSGlobalObject::init: Object link constant set begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::Object)].set(vm, this, objectConstructor);
+    WIN98_TRACE("JSGlobalObject::init: Object link constant set end");
 
+    WIN98_TRACE("JSGlobalObject::init: throwTypeErrorFunction create begin");
     JSFunction* throwTypeErrorFunction = JSFunction::create(vm, this, 0, String(), globalFuncThrowTypeError, ImplementationVisibility::Public);
+    WIN98_TRACE("JSGlobalObject::init: throwTypeErrorFunction create end");
+    WIN98_TRACE("JSGlobalObject::init: throwTypeErrorFunction link constant set begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::throwTypeErrorFunction)].set(vm, this, throwTypeErrorFunction);
+    WIN98_TRACE("JSGlobalObject::init: throwTypeErrorFunction link constant set end");
 
+    WIN98_TRACE("JSGlobalObject::init: FunctionConstructor create begin");
     FunctionConstructor* functionConstructor = FunctionConstructor::create(vm, FunctionConstructor::createStructure(vm, this, m_functionPrototype.get()), m_functionPrototype.get());
+    WIN98_TRACE("JSGlobalObject::init: FunctionConstructor create end");
+    WIN98_TRACE("JSGlobalObject::init: FunctionConstructor set begin");
     m_functionConstructor.set(vm, this, functionConstructor);
+    WIN98_TRACE("JSGlobalObject::init: FunctionConstructor set end");
 
+    WIN98_TRACE("JSGlobalObject::init: ArrayConstructor create begin");
     ArrayConstructor* arrayConstructor = ArrayConstructor::create(vm, this, ArrayConstructor::createStructure(vm, this, m_functionPrototype.get()), m_arrayPrototype.get());
+    WIN98_TRACE("JSGlobalObject::init: ArrayConstructor create end");
+    WIN98_TRACE("JSGlobalObject::init: ArrayConstructor set begin");
     m_arrayConstructor.set(vm, this, arrayConstructor);
+    WIN98_TRACE("JSGlobalObject::init: ArrayConstructor set end");
+    WIN98_TRACE("JSGlobalObject::init: Array link constant set begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::Array)].set(vm, this, arrayConstructor);
+    WIN98_TRACE("JSGlobalObject::init: Array link constant set end");
 
+    WIN98_TRACE("JSGlobalObject::init: ShadowRealmConstructor create begin");
     ShadowRealmConstructor* shadowRealmConstructor = ShadowRealmConstructor::create(vm, ShadowRealmConstructor::createStructure(vm, this, m_functionPrototype.get()), m_shadowRealmPrototype.get());
+    WIN98_TRACE("JSGlobalObject::init: ShadowRealmConstructor create end");
+    WIN98_TRACE("JSGlobalObject::init: ShadowRealmConstructor set begin");
     m_shadowRealmConstructor.set(vm, this, shadowRealmConstructor);
+    WIN98_TRACE("JSGlobalObject::init: ShadowRealmConstructor set end");
 
+    WIN98_TRACE("JSGlobalObject::init: RegExpConstructor create begin");
     RegExpConstructor* regExpConstructor = RegExpConstructor::create(vm, RegExpConstructor::createStructure(vm, this, m_functionPrototype.get()), m_regExpPrototype.get());
+    WIN98_TRACE("JSGlobalObject::init: RegExpConstructor create end");
+    WIN98_TRACE("JSGlobalObject::init: RegExpConstructor set begin");
     m_regExpConstructor.set(vm, this, regExpConstructor);
+    WIN98_TRACE("JSGlobalObject::init: RegExpConstructor set end");
+    WIN98_TRACE("JSGlobalObject::init: RegExp link constant set begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::RegExp)].set(vm, this, regExpConstructor);
+    WIN98_TRACE("JSGlobalObject::init: RegExp link constant set end");
+    WIN98_TRACE("JSGlobalObject::init: regExpGlobalData cachedResult record begin");
     m_regExpGlobalData.cachedResult().record(vm, this, nullptr, jsEmptyString(vm), MatchResult(0, 0), /*oneCharacterMatch */ false);
+    WIN98_TRACE("JSGlobalObject::init: regExpGlobalData cachedResult record end");
 
 #define CREATE_CONSTRUCTOR_FOR_SIMPLE_TYPE(capitalName, lowerName, properName, instanceType, jsName, prototypeBase, featureFlag) \
+WIN98_TRACE("JSGlobalObject::init: simple constructor " #capitalName " create begin"); \
 capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName ## Constructor::create(vm, capitalName ## Constructor::createStructure(vm, this, m_functionPrototype.get()), m_ ## lowerName ## Prototype.get()) : nullptr; \
+    WIN98_TRACE("JSGlobalObject::init: simple constructor " #capitalName " create end"); \
+    if (featureFlag) \
+        WIN98_TRACE("JSGlobalObject::init: simple constructor " #capitalName " prototype constructor put begin"); \
     if (featureFlag) \
         m_ ## lowerName ## Prototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, lowerName ## Constructor, static_cast<unsigned>(PropertyAttribute::DontEnum)); \
+    if (featureFlag) \
+        WIN98_TRACE("JSGlobalObject::init: simple constructor " #capitalName " prototype constructor put end");
 
+    WIN98_TRACE("JSGlobalObject::init: simple constructor batch begin");
     FOR_EACH_SIMPLE_BUILTIN_TYPE(CREATE_CONSTRUCTOR_FOR_SIMPLE_TYPE)
+    WIN98_TRACE("JSGlobalObject::init: simple constructor batch end");
     
 #undef CREATE_CONSTRUCTOR_FOR_SIMPLE_TYPE
 
+    WIN98_TRACE("JSGlobalObject::init: promiseConstructor set begin");
     m_promiseConstructor.set(vm, this, promiseConstructor);
+    WIN98_TRACE("JSGlobalObject::init: promiseConstructor set end");
+    WIN98_TRACE("JSGlobalObject::init: internalPromiseConstructor set begin");
     m_internalPromiseConstructor.set(vm, this, internalPromiseConstructor);
+    WIN98_TRACE("JSGlobalObject::init: internalPromiseConstructor set end");
+    WIN98_TRACE("JSGlobalObject::init: stringConstructor set begin");
     m_stringConstructor.set(vm, this, stringConstructor);
+    WIN98_TRACE("JSGlobalObject::init: stringConstructor set end");
+    WIN98_TRACE("JSGlobalObject::init: Promise link constant set begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::Promise)].set(vm, this, promiseConstructor);
+    WIN98_TRACE("JSGlobalObject::init: Promise link constant set end");
+    WIN98_TRACE("JSGlobalObject::init: InternalPromise link constant set begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::InternalPromise)].set(vm, this, internalPromiseConstructor);
+    WIN98_TRACE("JSGlobalObject::init: InternalPromise link constant set end");
+    WIN98_TRACE("JSGlobalObject::init: String link constant set begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::String)].set(vm, this, stringConstructor);
+    WIN98_TRACE("JSGlobalObject::init: String link constant set end");
 
+    WIN98_TRACE("JSGlobalObject::init: EvalErrorStructure initLater begin");
     m_evalErrorStructure.initLater(
         [] (LazyClassStructure::Initializer& init) {
             init.global->initializeErrorConstructor<ErrorType::EvalError>(init);
         });
+    WIN98_TRACE("JSGlobalObject::init: EvalErrorStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: RangeErrorStructure initLater begin");
     m_rangeErrorStructure.initLater(
         [] (LazyClassStructure::Initializer& init) {
             init.global->initializeErrorConstructor<ErrorType::RangeError>(init);
         });
+    WIN98_TRACE("JSGlobalObject::init: RangeErrorStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: ReferenceErrorStructure initLater begin");
     m_referenceErrorStructure.initLater(
         [] (LazyClassStructure::Initializer& init) {
             init.global->initializeErrorConstructor<ErrorType::ReferenceError>(init);
         });
+    WIN98_TRACE("JSGlobalObject::init: ReferenceErrorStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: SyntaxErrorStructure initLater begin");
     m_syntaxErrorStructure.initLater(
         [] (LazyClassStructure::Initializer& init) {
             init.global->initializeErrorConstructor<ErrorType::SyntaxError>(init);
         });
+    WIN98_TRACE("JSGlobalObject::init: SyntaxErrorStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: TypeErrorStructure initLater begin");
     m_typeErrorStructure.initLater(
         [] (LazyClassStructure::Initializer& init) {
             init.global->initializeErrorConstructor<ErrorType::TypeError>(init);
         });
+    WIN98_TRACE("JSGlobalObject::init: TypeErrorStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: URIErrorStructure initLater begin");
     m_URIErrorStructure.initLater(
         [] (LazyClassStructure::Initializer& init) {
             init.global->initializeErrorConstructor<ErrorType::URIError>(init);
         });
+    WIN98_TRACE("JSGlobalObject::init: URIErrorStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: AggregateErrorStructure initLater begin");
     m_aggregateErrorStructure.initLater(
         [] (LazyClassStructure::Initializer& init) {
             init.global->initializeAggregateErrorConstructor(init);
         });
+    WIN98_TRACE("JSGlobalObject::init: AggregateErrorStructure initLater end");
     if (Options::useExplicitResourceManagement()) {
+        WIN98_TRACE("JSGlobalObject::init: SuppressedErrorStructure initLater begin");
         m_suppressedErrorStructure.initLater(
             [] (LazyClassStructure::Initializer& init) {
                 init.global->initializeSuppressedErrorConstructor(init);
             });
+        WIN98_TRACE("JSGlobalObject::init: SuppressedErrorStructure initLater end");
     }
 
+    WIN98_TRACE("JSGlobalObject::init: generatorFunctionPrototype set begin");
     m_generatorFunctionPrototype.set(vm, this, GeneratorFunctionPrototype::create(vm, GeneratorFunctionPrototype::createStructure(vm, this, m_functionPrototype.get())));
+    WIN98_TRACE("JSGlobalObject::init: generatorFunctionPrototype set end");
+    WIN98_TRACE("JSGlobalObject::init: generatorFunctionConstructor create begin");
     GeneratorFunctionConstructor* generatorFunctionConstructor = GeneratorFunctionConstructor::create(vm, GeneratorFunctionConstructor::createStructure(vm, this, functionConstructor), m_generatorFunctionPrototype.get());
+    WIN98_TRACE("JSGlobalObject::init: generatorFunctionConstructor create end");
+    WIN98_TRACE("JSGlobalObject::init: generatorFunctionPrototype constructor put begin");
     m_generatorFunctionPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, generatorFunctionConstructor, PropertyAttribute::DontEnum | PropertyAttribute::ReadOnly);
+    WIN98_TRACE("JSGlobalObject::init: generatorFunctionPrototype constructor put end");
+    WIN98_TRACE("JSGlobalObject::init: generatorFunctionStructure set begin");
     m_generatorFunctionStructure.set(vm, this, JSGeneratorFunction::createStructure(vm, this, m_generatorFunctionPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: generatorFunctionStructure set end");
 
+    WIN98_TRACE("JSGlobalObject::init: generatorPrototype constructor put begin");
     m_generatorPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, m_generatorFunctionPrototype.get(), PropertyAttribute::DontEnum | PropertyAttribute::ReadOnly);
+    WIN98_TRACE("JSGlobalObject::init: generatorPrototype constructor put end");
+    WIN98_TRACE("JSGlobalObject::init: generatorFunctionPrototype prototype put begin");
     m_generatorFunctionPrototype->putDirectWithoutTransition(vm, vm.propertyNames->prototype, m_generatorPrototype.get(), PropertyAttribute::DontEnum | PropertyAttribute::ReadOnly);
+    WIN98_TRACE("JSGlobalObject::init: generatorFunctionPrototype prototype put end");
+    WIN98_TRACE("JSGlobalObject::init: generatorStructure set begin");
     m_generatorStructure.set(vm, this, JSGenerator::createStructure(vm, this, m_generatorPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: generatorStructure set end");
 
+    WIN98_TRACE("JSGlobalObject::init: asyncFunctionPrototype set begin");
     m_asyncFunctionPrototype.set(vm, this, AsyncFunctionPrototype::create(vm, AsyncFunctionPrototype::createStructure(vm, this, m_functionPrototype.get())));
+    WIN98_TRACE("JSGlobalObject::init: asyncFunctionPrototype set end");
+    WIN98_TRACE("JSGlobalObject::init: asyncFunctionConstructor create begin");
     AsyncFunctionConstructor* asyncFunctionConstructor = AsyncFunctionConstructor::create(vm, AsyncFunctionConstructor::createStructure(vm, this, functionConstructor), m_asyncFunctionPrototype.get());
+    WIN98_TRACE("JSGlobalObject::init: asyncFunctionConstructor create end");
+    WIN98_TRACE("JSGlobalObject::init: asyncFunctionPrototype constructor put begin");
     m_asyncFunctionPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, asyncFunctionConstructor, PropertyAttribute::DontEnum | PropertyAttribute::ReadOnly);
+    WIN98_TRACE("JSGlobalObject::init: asyncFunctionPrototype constructor put end");
+    WIN98_TRACE("JSGlobalObject::init: asyncFunctionStructure set begin");
     m_asyncFunctionStructure.set(vm, this, JSAsyncFunction::createStructure(vm, this, m_asyncFunctionPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: asyncFunctionStructure set end");
+    WIN98_TRACE("JSGlobalObject::init: functionWithFieldsStructure set begin");
     m_functionWithFieldsStructure.set(vm, this, JSFunctionWithFields::createStructure(vm, this, m_functionPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: functionWithFieldsStructure set end");
 
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorFunctionPrototype set begin");
     m_asyncGeneratorFunctionPrototype.set(vm, this, AsyncGeneratorFunctionPrototype::create(vm, AsyncGeneratorFunctionPrototype::createStructure(vm, this, m_functionPrototype.get())));
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorFunctionPrototype set end");
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorFunctionConstructor create begin");
     AsyncGeneratorFunctionConstructor* asyncGeneratorFunctionConstructor = AsyncGeneratorFunctionConstructor::create(vm, AsyncGeneratorFunctionConstructor::createStructure(vm, this, functionConstructor), m_asyncGeneratorFunctionPrototype.get());
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorFunctionConstructor create end");
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorFunctionPrototype constructor put begin");
     m_asyncGeneratorFunctionPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, asyncGeneratorFunctionConstructor, PropertyAttribute::DontEnum | PropertyAttribute::ReadOnly);
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorFunctionPrototype constructor put end");
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorFunctionStructure set begin");
     m_asyncGeneratorFunctionStructure.set(vm, this, JSAsyncGeneratorFunction::createStructure(vm, this, m_asyncGeneratorFunctionPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorFunctionStructure set end");
 
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorPrototype constructor put begin");
     m_asyncGeneratorPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, m_asyncGeneratorFunctionPrototype.get(), PropertyAttribute::DontEnum | PropertyAttribute::ReadOnly);
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorPrototype constructor put end");
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorFunctionPrototype prototype put begin");
     m_asyncGeneratorFunctionPrototype->putDirectWithoutTransition(vm, vm.propertyNames->prototype, m_asyncGeneratorPrototype.get(), PropertyAttribute::DontEnum | PropertyAttribute::ReadOnly);
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorFunctionPrototype prototype put end");
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorStructure set begin");
     m_asyncGeneratorStructure.set(vm, this, JSAsyncGenerator::createStructure(vm, this, m_asyncGeneratorPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorStructure set end");
     
+    WIN98_TRACE("JSGlobalObject::init: objectPrototype constructor put begin");
     m_objectPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, objectConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    WIN98_TRACE("JSGlobalObject::init: objectPrototype constructor put end");
+    WIN98_TRACE("JSGlobalObject::init: functionPrototype constructor put begin");
     m_functionPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, functionConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    WIN98_TRACE("JSGlobalObject::init: functionPrototype constructor put end");
+    WIN98_TRACE("JSGlobalObject::init: arrayPrototype constructor put begin");
     m_arrayPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, arrayConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    WIN98_TRACE("JSGlobalObject::init: arrayPrototype constructor put end");
+    WIN98_TRACE("JSGlobalObject::init: regExpPrototype constructor put begin");
     m_regExpPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, regExpConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    WIN98_TRACE("JSGlobalObject::init: regExpPrototype constructor put end");
+    WIN98_TRACE("JSGlobalObject::init: shadowRealmPrototype constructor put begin");
     m_shadowRealmPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, shadowRealmConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    WIN98_TRACE("JSGlobalObject::init: shadowRealmPrototype constructor put end");
     
+    WIN98_TRACE("JSGlobalObject::init: global Object put begin");
     putDirectWithoutTransition(vm, vm.propertyNames->Object, objectConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    WIN98_TRACE("JSGlobalObject::init: global Object put end");
+    WIN98_TRACE("JSGlobalObject::init: global Function put begin");
     putDirectWithoutTransition(vm, vm.propertyNames->Function, functionConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    WIN98_TRACE("JSGlobalObject::init: global Function put end");
+    WIN98_TRACE("JSGlobalObject::init: global Array put begin");
     putDirectWithoutTransition(vm, vm.propertyNames->Array, arrayConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    WIN98_TRACE("JSGlobalObject::init: global Array put end");
+    WIN98_TRACE("JSGlobalObject::init: global RegExp put begin");
     putDirectWithoutTransition(vm, vm.propertyNames->RegExp, regExpConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    WIN98_TRACE("JSGlobalObject::init: global RegExp put end");
 
+    WIN98_TRACE("JSGlobalObject::init: IteratorConstructor create begin");
     JSIteratorConstructor* iteratorConstructor = JSIteratorConstructor::create(vm, this, JSIteratorConstructor::createStructure(vm, this, m_functionPrototype.get()), m_iteratorPrototype.get());
+    WIN98_TRACE("JSGlobalObject::init: IteratorConstructor create end");
+    WIN98_TRACE("JSGlobalObject::init: Iterator link constant set begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::Iterator)].set(vm, this, iteratorConstructor);
+    WIN98_TRACE("JSGlobalObject::init: Iterator link constant set end");
+    WIN98_TRACE("JSGlobalObject::init: IteratorConstructor set begin");
     m_iteratorConstructor.set(vm, this, iteratorConstructor);
+    WIN98_TRACE("JSGlobalObject::init: IteratorConstructor set end");
+    WIN98_TRACE("JSGlobalObject::init: global Iterator put begin");
     putDirectWithoutTransition(vm, vm.propertyNames->Iterator, iteratorConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    WIN98_TRACE("JSGlobalObject::init: global Iterator put end");
 
-    if (Options::useSharedArrayBuffer())
+    if (Options::useSharedArrayBuffer()) {
+        WIN98_TRACE("JSGlobalObject::init: global SharedArrayBuffer put begin");
         putDirectWithoutTransition(vm, vm.propertyNames->SharedArrayBuffer, m_sharedArrayBufferStructure.constructor(this), static_cast<unsigned>(PropertyAttribute::DontEnum));
+        WIN98_TRACE("JSGlobalObject::init: global SharedArrayBuffer put end");
+    }
 
     if (Options::useExplicitResourceManagement()) {
+        WIN98_TRACE("JSGlobalObject::init: global SuppressedError put begin");
         putDirectWithoutTransition(vm, vm.propertyNames->SuppressedError, m_suppressedErrorStructure.constructor(this), static_cast<unsigned>(PropertyAttribute::DontEnum));
+        WIN98_TRACE("JSGlobalObject::init: global SuppressedError put end");
+        WIN98_TRACE("JSGlobalObject::init: global DisposableStack put begin");
         putDirectWithoutTransition(vm, vm.propertyNames->DisposableStack, m_disposableStackStructure.constructor(this), static_cast<unsigned>(PropertyAttribute::DontEnum));
+        WIN98_TRACE("JSGlobalObject::init: global DisposableStack put end");
+        WIN98_TRACE("JSGlobalObject::init: global AsyncDisposableStack put begin");
         putDirectWithoutTransition(vm, vm.propertyNames->AsyncDisposableStack, m_asyncDisposableStackStructure.constructor(this), static_cast<unsigned>(PropertyAttribute::DontEnum));
+        WIN98_TRACE("JSGlobalObject::init: global AsyncDisposableStack put end");
     }
 
 #define PUT_CONSTRUCTOR_FOR_SIMPLE_TYPE(capitalName, lowerName, properName, instanceType, jsName, prototypeBase, featureFlag) \
+    WIN98_TRACE("JSGlobalObject::init: global simple constructor " #capitalName " put maybe begin"); \
     if (featureFlag) \
-        putDirectWithoutTransition(vm, vm.propertyNames-> jsName, lowerName ## Constructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
+        putDirectWithoutTransition(vm, vm.propertyNames-> jsName, lowerName ## Constructor, static_cast<unsigned>(PropertyAttribute::DontEnum)); \
+    WIN98_TRACE("JSGlobalObject::init: global simple constructor " #capitalName " put maybe end");
 
 
+    WIN98_TRACE("JSGlobalObject::init: global simple constructor batch begin");
     FOR_EACH_SIMPLE_BUILTIN_TYPE_WITH_CONSTRUCTOR(PUT_CONSTRUCTOR_FOR_SIMPLE_TYPE)
+    WIN98_TRACE("JSGlobalObject::init: global simple constructor batch end");
 
 #undef PUT_CONSTRUCTOR_FOR_SIMPLE_TYPE
+    WIN98_TRACE("JSGlobalObject::init: iteratorResultObjectStructure initLater begin");
     m_iteratorResultObjectStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(createIteratorResultObjectStructure(init.vm, *init.owner));
         });
+    WIN98_TRACE("JSGlobalObject::init: iteratorResultObjectStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: dataPropertyDescriptorObjectStructure initLater begin");
     m_dataPropertyDescriptorObjectStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(createDataPropertyDescriptorObjectStructure(init.vm, *init.owner));
         });
+    WIN98_TRACE("JSGlobalObject::init: dataPropertyDescriptorObjectStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: accessorPropertyDescriptorObjectStructure initLater begin");
     m_accessorPropertyDescriptorObjectStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(createAccessorPropertyDescriptorObjectStructure(init.vm, *init.owner));
         });
+    WIN98_TRACE("JSGlobalObject::init: accessorPropertyDescriptorObjectStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: promiseCapabilityObjectStructure initLater begin");
     m_promiseCapabilityObjectStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(createPromiseCapabilityObjectStructure(init.vm, *init.owner));
         });
+    WIN98_TRACE("JSGlobalObject::init: promiseCapabilityObjectStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: promiseAllSettledFulfilledResultStructure initLater begin");
     m_promiseAllSettledFulfilledResultStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(createPromiseAllSettledFulfilledResultStructure(init.vm, *init.owner));
         });
+    WIN98_TRACE("JSGlobalObject::init: promiseAllSettledFulfilledResultStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: promiseAllSettledRejectedResultStructure initLater begin");
     m_promiseAllSettledRejectedResultStructure.initLater(
         [] (const Initializer<Structure>& init) {
             init.set(createPromiseAllSettledRejectedResultStructure(init.vm, *init.owner));
         });
+    WIN98_TRACE("JSGlobalObject::init: promiseAllSettledRejectedResultStructure initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: collatorStructure initLater begin");
     m_collatorStructure.initLater(
         [] (const Initializer<Structure>& init) {
             JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
             IntlCollatorPrototype* collatorPrototype = IntlCollatorPrototype::create(init.vm, globalObject, IntlCollatorPrototype::createStructure(init.vm, globalObject, globalObject->objectPrototype()));
             init.set(IntlCollator::createStructure(init.vm, globalObject, collatorPrototype));
         });
+    WIN98_TRACE("JSGlobalObject::init: collatorStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: displayNamesStructure initLater begin");
     m_displayNamesStructure.initLater(
         [] (const Initializer<Structure>& init) {
             JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
             IntlDisplayNamesPrototype* displayNamesPrototype = IntlDisplayNamesPrototype::create(init.vm, IntlDisplayNamesPrototype::createStructure(init.vm, globalObject, globalObject->objectPrototype()));
             init.set(IntlDisplayNames::createStructure(init.vm, globalObject, displayNamesPrototype));
         });
+    WIN98_TRACE("JSGlobalObject::init: displayNamesStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: durationFormatStructure initLater begin");
     m_durationFormatStructure.initLater(
         [] (const Initializer<Structure>& init) {
             JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
             IntlDurationFormatPrototype* durationFormatPrototype = IntlDurationFormatPrototype::create(init.vm, IntlDurationFormatPrototype::createStructure(init.vm, globalObject, globalObject->objectPrototype()));
             init.set(IntlDurationFormat::createStructure(init.vm, globalObject, durationFormatPrototype));
         });
+    WIN98_TRACE("JSGlobalObject::init: durationFormatStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: listFormatStructure initLater begin");
     m_listFormatStructure.initLater(
         [] (const Initializer<Structure>& init) {
             JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
             IntlListFormatPrototype* listFormatPrototype = IntlListFormatPrototype::create(init.vm, IntlListFormatPrototype::createStructure(init.vm, globalObject, globalObject->objectPrototype()));
             init.set(IntlListFormat::createStructure(init.vm, globalObject, listFormatPrototype));
         });
+    WIN98_TRACE("JSGlobalObject::init: listFormatStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: localeStructure initLater begin");
     m_localeStructure.initLater(
         [] (const Initializer<Structure>& init) {
             JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
             IntlLocalePrototype* localePrototype = IntlLocalePrototype::create(init.vm, IntlLocalePrototype::createStructure(init.vm, globalObject, globalObject->objectPrototype()));
             init.set(IntlLocale::createStructure(init.vm, globalObject, localePrototype));
         });
+    WIN98_TRACE("JSGlobalObject::init: localeStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: pluralRulesStructure initLater begin");
     m_pluralRulesStructure.initLater(
         [] (const Initializer<Structure>& init) {
             JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
             IntlPluralRulesPrototype* pluralRulesPrototype = IntlPluralRulesPrototype::create(init.vm, globalObject, IntlPluralRulesPrototype::createStructure(init.vm, globalObject, globalObject->objectPrototype()));
             init.set(IntlPluralRules::createStructure(init.vm, globalObject, pluralRulesPrototype));
         });
+    WIN98_TRACE("JSGlobalObject::init: pluralRulesStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: relativeTimeFormatStructure initLater begin");
     m_relativeTimeFormatStructure.initLater(
         [] (const Initializer<Structure>& init) {
             JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
             IntlRelativeTimeFormatPrototype* relativeTimeFormatPrototype = IntlRelativeTimeFormatPrototype::create(init.vm, IntlRelativeTimeFormatPrototype::createStructure(init.vm, globalObject, globalObject->objectPrototype()));
             init.set(IntlRelativeTimeFormat::createStructure(init.vm, globalObject, relativeTimeFormatPrototype));
         });
+    WIN98_TRACE("JSGlobalObject::init: relativeTimeFormatStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: segmentIteratorStructure initLater begin");
     m_segmentIteratorStructure.initLater(
         [] (const Initializer<Structure>& init) {
             JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
             IntlSegmentIteratorPrototype* segmentIteratorPrototype = IntlSegmentIteratorPrototype::create(init.vm, IntlSegmentIteratorPrototype::createStructure(init.vm, globalObject, globalObject->iteratorPrototype()));
             init.set(IntlSegmentIterator::createStructure(init.vm, globalObject, segmentIteratorPrototype));
         });
+    WIN98_TRACE("JSGlobalObject::init: segmentIteratorStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: segmenterStructure initLater begin");
     m_segmenterStructure.initLater(
         [] (const Initializer<Structure>& init) {
             JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
             IntlSegmenterPrototype* segmenterPrototype = IntlSegmenterPrototype::create(init.vm, IntlSegmenterPrototype::createStructure(init.vm, globalObject, globalObject->objectPrototype()));
             init.set(IntlSegmenter::createStructure(init.vm, globalObject, segmenterPrototype));
         });
+    WIN98_TRACE("JSGlobalObject::init: segmenterStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: segmentsStructure initLater begin");
     m_segmentsStructure.initLater(
         [] (const Initializer<Structure>& init) {
             JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
             IntlSegmentsPrototype* segmentsPrototype = IntlSegmentsPrototype::create(init.vm, globalObject, IntlSegmentsPrototype::createStructure(init.vm, globalObject, globalObject->objectPrototype()));
             init.set(IntlSegments::createStructure(init.vm, globalObject, segmentsPrototype));
         });
+    WIN98_TRACE("JSGlobalObject::init: segmentsStructure initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: dateTimeFormatStructure initLater begin");
     m_dateTimeFormatStructure.initLater(
         [] (LazyClassStructure::Initializer& init) {
             init.setPrototype(IntlDateTimeFormatPrototype::create(init.vm, init.global, IntlDateTimeFormatPrototype::createStructure(init.vm, init.global, init.global->objectPrototype())));
             init.setStructure(IntlDateTimeFormat::createStructure(init.vm, init.global, init.prototype));
             init.setConstructor(IntlDateTimeFormatConstructor::create(init.vm, IntlDateTimeFormatConstructor::createStructure(init.vm, init.global, init.global->functionPrototype()), jsCast<IntlDateTimeFormatPrototype*>(init.prototype)));
         });
+    WIN98_TRACE("JSGlobalObject::init: dateTimeFormatStructure initLater end");
+    WIN98_TRACE("JSGlobalObject::init: numberFormatStructure initLater begin");
     m_numberFormatStructure.initLater(
         [] (LazyClassStructure::Initializer& init) {
             init.setPrototype(IntlNumberFormatPrototype::create(init.vm, init.global, IntlNumberFormatPrototype::createStructure(init.vm, init.global, init.global->objectPrototype())));
             init.setStructure(IntlNumberFormat::createStructure(init.vm, init.global, init.prototype));
             init.setConstructor(IntlNumberFormatConstructor::create(init.vm, IntlNumberFormatConstructor::createStructure(init.vm, init.global, init.global->functionPrototype()), jsCast<IntlNumberFormatPrototype*>(init.prototype)));
         });
+    WIN98_TRACE("JSGlobalObject::init: numberFormatStructure initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: defaultCollator initLater begin");
     m_defaultCollator.initLater(
         [] (const Initializer<IntlCollator>& init) {
             JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
@@ -1644,7 +2078,9 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
             RETURN_IF_EXCEPTION(scope, void());
             init.set(collator);
         });
+    WIN98_TRACE("JSGlobalObject::init: defaultCollator initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: defaultNumberFormat initLater begin");
     m_defaultNumberFormat.initLater(
         [] (const Initializer<IntlNumberFormat>& init) {
             JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
@@ -1655,45 +2091,61 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
             RETURN_IF_EXCEPTION(scope, void());
             init.set(numberFormat);
         });
+    WIN98_TRACE("JSGlobalObject::init: defaultNumberFormat initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: IntlObject create begin");
     IntlObject* intl = IntlObject::create(vm, this, IntlObject::createStructure(vm, this, m_objectPrototype.get()));
+    WIN98_TRACE("JSGlobalObject::init: IntlObject create end");
+    WIN98_TRACE("JSGlobalObject::init: global Intl put begin");
     putDirectWithoutTransition(vm, vm.propertyNames->Intl, intl, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    WIN98_TRACE("JSGlobalObject::init: global Intl put end");
 
     if (Options::useTemporal()) {
+        WIN98_TRACE("JSGlobalObject::init: Temporal block begin");
+        WIN98_TRACE("JSGlobalObject::init: Temporal calendarStructure initLater begin");
         m_calendarStructure.initLater(
             [] (const Initializer<Structure>& init) {
                 JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
                 TemporalCalendarPrototype* calendarPrototype = TemporalCalendarPrototype::create(init.vm, globalObject, TemporalCalendarPrototype::createStructure(init.vm, globalObject, globalObject->objectPrototype()));
                 init.set(TemporalCalendar::createStructure(init.vm, globalObject, calendarPrototype));
             });
+        WIN98_TRACE("JSGlobalObject::init: Temporal calendarStructure initLater end");
 
+        WIN98_TRACE("JSGlobalObject::init: Temporal durationStructure initLater begin");
         m_durationStructure.initLater(
             [] (const Initializer<Structure>& init) {
                 JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
                 TemporalDurationPrototype* durationPrototype = TemporalDurationPrototype::create(init.vm, TemporalDurationPrototype::createStructure(init.vm, globalObject, globalObject->objectPrototype()));
                 init.set(TemporalDuration::createStructure(init.vm, globalObject, durationPrototype));
             });
+        WIN98_TRACE("JSGlobalObject::init: Temporal durationStructure initLater end");
 
+        WIN98_TRACE("JSGlobalObject::init: Temporal instantStructure initLater begin");
         m_instantStructure.initLater(
             [] (const Initializer<Structure>& init) {
                 JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
                 TemporalInstantPrototype* instantPrototype = TemporalInstantPrototype::create(init.vm, TemporalInstantPrototype::createStructure(init.vm, globalObject, globalObject->objectPrototype()));
                 init.set(TemporalInstant::createStructure(init.vm, globalObject, instantPrototype));
             });
+        WIN98_TRACE("JSGlobalObject::init: Temporal instantStructure initLater end");
 
+        WIN98_TRACE("JSGlobalObject::init: Temporal plainDateStructure initLater begin");
         m_plainDateStructure.initLater(
             [] (const Initializer<Structure>& init) {
                 auto* globalObject = jsCast<JSGlobalObject*>(init.owner);
                 auto* plainDatePrototype = TemporalPlainDatePrototype::create(init.vm, globalObject, TemporalPlainDatePrototype::createStructure(init.vm, globalObject, globalObject->objectPrototype()));
                 init.set(TemporalPlainDate::createStructure(init.vm, globalObject, plainDatePrototype));
             });
+        WIN98_TRACE("JSGlobalObject::init: Temporal plainDateStructure initLater end");
 
+        WIN98_TRACE("JSGlobalObject::init: Temporal plainDateTimeStructure initLater begin");
         m_plainDateTimeStructure.initLater(
             [] (const Initializer<Structure>& init) {
                 auto* globalObject = jsCast<JSGlobalObject*>(init.owner);
                 auto* plainDateTimePrototype = TemporalPlainDateTimePrototype::create(init.vm, globalObject, TemporalPlainDateTimePrototype::createStructure(init.vm, globalObject, globalObject->objectPrototype()));
                 init.set(TemporalPlainDateTime::createStructure(init.vm, globalObject, plainDateTimePrototype));
             });
+        WIN98_TRACE("JSGlobalObject::init: Temporal plainDateTimeStructure initLater end");
 
         m_plainMonthDayStructure.initLater(
             [] (const Initializer<Structure>& init) {
@@ -1726,363 +2178,575 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
         TemporalObject* temporal = TemporalObject::create(vm, TemporalObject::createStructure(vm, this));
         putDirectWithoutTransition(vm, vm.propertyNames->Temporal, temporal, static_cast<unsigned>(PropertyAttribute::DontEnum));
     }
-    if (Options::useShadowRealm())
+    WIN98_TRACE("JSGlobalObject::init: ShadowRealm global conditional begin");
+    if (Options::useShadowRealm()) {
+        WIN98_TRACE("JSGlobalObject::init: global ShadowRealm put begin");
         putDirectWithoutTransition(vm, vm.propertyNames->ShadowRealm, shadowRealmConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
+        WIN98_TRACE("JSGlobalObject::init: global ShadowRealm put end");
+    }
+    WIN98_TRACE("JSGlobalObject::init: ShadowRealm global conditional end");
 
+    WIN98_TRACE("JSGlobalObject::init: moduleLoader initLater begin");
     m_moduleLoader.initLater(
         [] (const Initializer<JSModuleLoader>& init) {
             auto catchScope = DECLARE_CATCH_SCOPE(init.vm);
             init.set(JSModuleLoader::create(init.owner, init.vm, JSModuleLoader::createStructure(init.vm, init.owner, jsNull())));
             catchScope.releaseAssertNoException();
         });
-    if (Options::exposeInternalModuleLoader())
+    WIN98_TRACE("JSGlobalObject::init: moduleLoader initLater end");
+    WIN98_TRACE("JSGlobalObject::init: exposeInternalModuleLoader conditional begin");
+    if (Options::exposeInternalModuleLoader()) {
+        WIN98_TRACE("JSGlobalObject::init: global Loader put begin");
         putDirectWithoutTransition(vm, vm.propertyNames->Loader, moduleLoader(), static_cast<unsigned>(PropertyAttribute::DontEnum));
+        WIN98_TRACE("JSGlobalObject::init: global Loader put end");
+    }
+    WIN98_TRACE("JSGlobalObject::init: exposeInternalModuleLoader conditional end");
 
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants flags begin");
     GetterSetter* regExpProtoFlagsGetter = getGetterById(this, m_regExpPrototype.get(), vm.propertyNames->flags);
     catchScope.assertNoException();
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpProtoFlagsGetter)].set(vm, this, regExpProtoFlagsGetter);
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants flags end");
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants hasIndices begin");
     GetterSetter* regExpProtoHasIndicesGetter = getGetterById(this, m_regExpPrototype.get(), vm.propertyNames->hasIndices);
     catchScope.assertNoException();
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpProtoHasIndicesGetter)].set(vm, this, regExpProtoHasIndicesGetter);
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants hasIndices end");
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants global begin");
     GetterSetter* regExpProtoGlobalGetter = getGetterById(this, m_regExpPrototype.get(), vm.propertyNames->global);
     catchScope.assertNoException();
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpProtoGlobalGetter)].set(vm, this, regExpProtoGlobalGetter);
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants global end");
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants ignoreCase begin");
     GetterSetter* regExpProtoIgnoreCaseGetter = getGetterById(this, m_regExpPrototype.get(), vm.propertyNames->ignoreCase);
     catchScope.assertNoException();
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpProtoIgnoreCaseGetter)].set(vm, this, regExpProtoIgnoreCaseGetter);
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants ignoreCase end");
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants multiline begin");
     GetterSetter* regExpProtoMultilineGetter = getGetterById(this, m_regExpPrototype.get(), vm.propertyNames->multiline);
     catchScope.assertNoException();
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpProtoMultilineGetter)].set(vm, this, regExpProtoMultilineGetter);
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants multiline end");
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants source begin");
     GetterSetter* regExpProtoSourceGetter = getGetterById(this, m_regExpPrototype.get(), vm.propertyNames->source);
     catchScope.assertNoException();
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpProtoSourceGetter)].set(vm, this, regExpProtoSourceGetter);
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants source end");
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants sticky begin");
     GetterSetter* regExpProtoStickyGetter = getGetterById(this, m_regExpPrototype.get(), vm.propertyNames->sticky);
     catchScope.assertNoException();
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpProtoStickyGetter)].set(vm, this, regExpProtoStickyGetter);
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants sticky end");
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants unicode begin");
     GetterSetter* regExpProtoUnicodeGetter = getGetterById(this, m_regExpPrototype.get(), vm.propertyNames->unicode);
     catchScope.assertNoException();
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpProtoUnicodeGetter)].set(vm, this, regExpProtoUnicodeGetter);
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants unicode end");
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants dotAll begin");
     GetterSetter* regExpProtoDotAllGetter = getGetterById(this, m_regExpPrototype.get(), vm.propertyNames->dotAll);
     catchScope.assertNoException();
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpProtoDotAllGetter)].set(vm, this, regExpProtoDotAllGetter);
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants dotAll end");
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants unicodeSets begin");
     GetterSetter* regExpProtoUnicodeSetsGetter = getGetterById(this, m_regExpPrototype.get(), vm.propertyNames->unicodeSets);
     catchScope.assertNoException();
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpProtoUnicodeSetsGetter)].set(vm, this, regExpProtoUnicodeSetsGetter);
+    WIN98_TRACE("JSGlobalObject::init: regExp link constants unicodeSets end");
+    WIN98_TRACE("JSGlobalObject::init: regExp symbol link constants begin");
     JSFunction* regExpSymbolReplace = jsCast<JSFunction*>(m_regExpPrototype->getDirect(vm, vm.propertyNames->replaceSymbol));
     m_regExpProtoSymbolReplace.set(vm, this, regExpSymbolReplace);
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpBuiltinExec)].set(vm, this, jsCast<JSFunction*>(m_regExpPrototype->getDirect(vm, vm.propertyNames->exec)));
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpPrototypeSymbolMatch)].set(vm, this, m_regExpPrototype->getDirect(vm, vm.propertyNames->matchSymbol).asCell());
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpPrototypeSymbolReplace)].set(vm, this, m_regExpPrototype->getDirect(vm, vm.propertyNames->replaceSymbol).asCell());
+    WIN98_TRACE("JSGlobalObject::init: regExp symbol link constants end");
 
+    WIN98_TRACE("JSGlobalObject::init: array/call/apply link constants begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isArray)].set(vm, this, arrayConstructor->getDirect(vm, vm.propertyNames->isArray).asCell());
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::callFunction)].set(vm, this, callFunction);
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::applyFunction)].set(vm, this, applyFunction);
+    WIN98_TRACE("JSGlobalObject::init: array/call/apply link constants end");
 
+    WIN98_TRACE("JSGlobalObject::init: hasOwnProperty link constant block begin");
     {
         JSValue hasOwnPropertyFunction = jsCast<JSFunction*>(objectPrototype()->get(this, vm.propertyNames->hasOwnProperty));
         catchScope.assertNoException();
         RELEASE_ASSERT(!!jsDynamicCast<JSFunction*>(hasOwnPropertyFunction));
         m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::hasOwnPropertyFunction)].set(vm, this, jsCast<JSFunction*>(hasOwnPropertyFunction));
     }
+    WIN98_TRACE("JSGlobalObject::init: hasOwnProperty link constant block end");
 
 #define INIT_PRIVATE_GLOBAL(funcName, code) \
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::funcName)].initLater([] (const Initializer<JSCell>& init) { \
             JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner); \
             init.set(JSFunction::create(init.vm, globalObject, code ## CodeGenerator(init.vm), globalObject)); \
         });
+    WIN98_TRACE("JSGlobalObject::init: builtin private link constants initLater batch begin");
     JSC_FOREACH_BUILTIN_LINK_TIME_CONSTANT(INIT_PRIVATE_GLOBAL)
+    WIN98_TRACE("JSGlobalObject::init: builtin private link constants initLater batch end");
 #undef INIT_PRIVATE_GLOBAL
 
     // AsyncFromSyncIterator Helpers
+    WIN98_TRACE("JSGlobalObject::init: asyncFromSyncIteratorCreate initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::asyncFromSyncIteratorCreate)].initLater([](const Initializer<JSCell>& init) {
         init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "asyncFromSyncIteratorCreate"_s, asyncFromSyncIteratorPrivateFuncCreate, ImplementationVisibility::Private, AsyncFromSyncIteratorCreateIntrinsic));
     });
+    WIN98_TRACE("JSGlobalObject::init: asyncFromSyncIteratorCreate initLater end");
 
     // RegExpStringIteratorHelpers
+    WIN98_TRACE("JSGlobalObject::init: regExpStringIteratorCreate initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpStringIteratorCreate)].initLater([](const Initializer<JSCell>& init) {
         init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 4, "regExpStringIteratorCreate"_s, regExpStringIteratorPrivateFuncCreate, ImplementationVisibility::Private, RegExpStringIteratorCreateIntrinsic));
     });
+    WIN98_TRACE("JSGlobalObject::init: regExpStringIteratorCreate initLater end");
 
     // WrapForValidIterator Helpers
+    WIN98_TRACE("JSGlobalObject::init: wrapForValidIteratorCreate initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::wrapForValidIteratorCreate)].initLater([](const Initializer<JSCell>& init) {
         init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "wrapForValidIteratorCreate"_s, wrapForValidIteratorPrivateFuncCreate, ImplementationVisibility::Private, WrapForValidIteratorCreateIntrinsic));
     });
+    WIN98_TRACE("JSGlobalObject::init: wrapForValidIteratorCreate initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: iteratorHelperCreate initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::iteratorHelperCreate)].initLater([](const Initializer<JSCell>& init) {
         init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "iteratorHelperCreate"_s, iteratorHelperPrivateFuncCreate, ImplementationVisibility::Private, IteratorHelperCreateIntrinsic));
     });
+    WIN98_TRACE("JSGlobalObject::init: iteratorHelperCreate initLater end");
 
     // Global object and function helpers.
+    WIN98_TRACE("JSGlobalObject::init: isFinite initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isFinite)].initLater([] (const Initializer<JSCell>& init) {
         init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "isFinite"_s, globalFuncIsFinite, ImplementationVisibility::Private, GlobalIsFiniteIntrinsic));
     });
+    WIN98_TRACE("JSGlobalObject::init: isFinite initLater end");
 
     // Map and Set helpers.
+    WIN98_TRACE("JSGlobalObject::init: Set link constant initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::Set)].initLater([] (const Initializer<JSCell>& init) {
             init.set(jsCast<JSGlobalObject*>(init.owner)->setConstructor());
         });
+    WIN98_TRACE("JSGlobalObject::init: Set link constant initLater end");
+    WIN98_TRACE("JSGlobalObject::init: Map link constant initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::Map)].initLater([] (const Initializer<JSCell>& init) {
             init.set(jsCast<JSGlobalObject*>(init.owner)->mapConstructor());
         });
+    WIN98_TRACE("JSGlobalObject::init: Map link constant initLater end");
+    WIN98_TRACE("JSGlobalObject::init: mapIterationNext initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::mapIterationNext)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "mapIterationNext"_s, mapPrivateFuncMapIterationNext, ImplementationVisibility::Private, JSMapIterationNextIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: mapIterationNext initLater end");
+    WIN98_TRACE("JSGlobalObject::init: mapIterationEntry initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::mapIterationEntry)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "mapIterationEntry"_s, mapPrivateFuncMapIterationEntry, ImplementationVisibility::Private, JSMapIterationEntryIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: mapIterationEntry initLater end");
+    WIN98_TRACE("JSGlobalObject::init: mapStorage initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::mapStorage)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "mapStorage"_s, mapPrivateFuncMapStorage, ImplementationVisibility::Private, JSMapStorageIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: mapStorage initLater end");
+    WIN98_TRACE("JSGlobalObject::init: mapIteratorNext initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::mapIteratorNext)].initLater([](const Initializer<JSCell>& init) {
         init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "mapIteratorNext"_s, mapIteratorPrivateFuncMapIteratorNext, ImplementationVisibility::Private, JSMapIteratorNextIntrinsic));
     });
+    WIN98_TRACE("JSGlobalObject::init: mapIteratorNext initLater end");
+    WIN98_TRACE("JSGlobalObject::init: mapIteratorKey initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::mapIteratorKey)].initLater([](const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "mapIteratorKey"_s, mapIteratorPrivateFuncMapIteratorKey, ImplementationVisibility::Private, JSMapIteratorKeyIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: mapIteratorKey initLater end");
+    WIN98_TRACE("JSGlobalObject::init: mapIteratorValue initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::mapIteratorValue)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "mapIteratorValue"_s, mapIteratorPrivateFuncMapIteratorValue, ImplementationVisibility::Private, JSMapIteratorValueIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: mapIteratorValue initLater end");
+    WIN98_TRACE("JSGlobalObject::init: mapIterationEntryKey initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::mapIterationEntryKey)].initLater([](const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "mapIterationEntryKey"_s, mapPrivateFuncMapIterationEntryKey, ImplementationVisibility::Private, JSMapIterationEntryKeyIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: mapIterationEntryKey initLater end");
+    WIN98_TRACE("JSGlobalObject::init: mapIterationEntryValue initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::mapIterationEntryValue)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "mapIterationEntryValue"_s, mapPrivateFuncMapIterationEntryValue, ImplementationVisibility::Private, JSMapIterationEntryValueIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: mapIterationEntryValue initLater end");
+    WIN98_TRACE("JSGlobalObject::init: setIterationNext initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::setIterationNext)].initLater([](const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "setIterationNext"_s, setPrivateFuncSetIterationNext, ImplementationVisibility::Private, JSSetIterationNextIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: setIterationNext initLater end");
+    WIN98_TRACE("JSGlobalObject::init: setIterationEntry initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::setIterationEntry)].initLater([](const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "setIterationEntry"_s, setPrivateFuncSetIterationEntry, ImplementationVisibility::Private, JSSetIterationEntryIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: setIterationEntry initLater end");
+    WIN98_TRACE("JSGlobalObject::init: setIterationEntryKey initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::setIterationEntryKey)].initLater([](const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "setIterationEntryKey"_s, setPrivateFuncSetIterationEntryKey, ImplementationVisibility::Private, JSSetIterationEntryKeyIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: setIterationEntryKey initLater end");
+    WIN98_TRACE("JSGlobalObject::init: setIteratorNext initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::setIteratorNext)].initLater([](const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "setIteratorNext"_s, setIteratorPrivateFuncSetIteratorNext, ImplementationVisibility::Private, JSSetIteratorNextIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: setIteratorNext initLater end");
+    WIN98_TRACE("JSGlobalObject::init: setIteratorKey initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::setIteratorKey)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "setIteratorKey"_s, setIteratorPrivateFuncSetIteratorKey, ImplementationVisibility::Private, JSSetIteratorKeyIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: setIteratorKey initLater end");
+    WIN98_TRACE("JSGlobalObject::init: setStorage initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::setStorage)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "setStorage"_s, setPrivateFuncSetStorage, ImplementationVisibility::Private, JSSetStorageIntrinsic));
-        });
+    });
+    WIN98_TRACE("JSGlobalObject::init: setStorage initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: importModule initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::importModule)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "importModule"_s, globalFuncImportModule, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: importModule initLater end");
+    WIN98_TRACE("JSGlobalObject::init: copyDataProperties initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::copyDataProperties)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "copyDataProperties"_s, globalFuncCopyDataProperties, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: copyDataProperties initLater end");
+    WIN98_TRACE("JSGlobalObject::init: cloneObject initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::cloneObject)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "cloneObject"_s, globalFuncCloneObject, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: cloneObject initLater end");
+    WIN98_TRACE("JSGlobalObject::init: resolvePromise initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::resolvePromise)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "resolvePromise"_s, resolvePromise, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: resolvePromise initLater end");
+    WIN98_TRACE("JSGlobalObject::init: rejectPromise initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::rejectPromise)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "rejectPromise"_s, rejectPromise, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: rejectPromise initLater end");
+    WIN98_TRACE("JSGlobalObject::init: fulfillPromise initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::fulfillPromise)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "fulfillPromise"_s, fulfillPromise, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: fulfillPromise initLater end");
+    WIN98_TRACE("JSGlobalObject::init: resolvePromiseWithFirstResolvingFunctionCallCheck initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::resolvePromiseWithFirstResolvingFunctionCallCheck)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "resolvePromiseWithFirstResolvingFunctionCallCheck"_s, resolvePromiseWithFirstResolvingFunctionCallCheck, ImplementationVisibility::Private, ResolvePromiseWithFirstResolvingFunctionCallCheckIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: resolvePromiseWithFirstResolvingFunctionCallCheck initLater end");
+    WIN98_TRACE("JSGlobalObject::init: rejectPromiseWithFirstResolvingFunctionCallCheck initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::rejectPromiseWithFirstResolvingFunctionCallCheck)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "rejectPromiseWithFirstResolvingFunctionCallCheck"_s, rejectPromiseWithFirstResolvingFunctionCallCheck, ImplementationVisibility::Private, RejectPromiseWithFirstResolvingFunctionCallCheckIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: rejectPromiseWithFirstResolvingFunctionCallCheck initLater end");
+    WIN98_TRACE("JSGlobalObject::init: fulfillPromiseWithFirstResolvingFunctionCallCheck initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::fulfillPromiseWithFirstResolvingFunctionCallCheck)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "fulfillPromiseWithFirstResolvingFunctionCallCheck"_s, fulfillPromiseWithFirstResolvingFunctionCallCheck, ImplementationVisibility::Private, FulfillPromiseWithFirstResolvingFunctionCallCheckIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: fulfillPromiseWithFirstResolvingFunctionCallCheck initLater end");
+    WIN98_TRACE("JSGlobalObject::init: resolveWithInternalMicrotaskForAsyncAwait initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::resolveWithInternalMicrotaskForAsyncAwait)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 3, "resolveWithInternalMicrotaskForAsyncAwait"_s, resolveWithInternalMicrotaskForAsyncAwait, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: resolveWithInternalMicrotaskForAsyncAwait initLater end");
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorQueueEnqueue initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::asyncGeneratorQueueEnqueue)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 4, "asyncGeneratorQueueEnqueue"_s, asyncGeneratorQueueEnqueue, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorQueueEnqueue initLater end");
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorQueueDequeueResolve initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::asyncGeneratorQueueDequeueResolve)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "asyncGeneratorQueueDequeueResolve"_s, asyncGeneratorQueueDequeueResolve, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorQueueDequeueResolve initLater end");
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorQueueDequeueReject initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::asyncGeneratorQueueDequeueReject)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "asyncGeneratorQueueDequeueReject"_s, asyncGeneratorQueueDequeueReject, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: asyncGeneratorQueueDequeueReject initLater end");
+    WIN98_TRACE("JSGlobalObject::init: driveAsyncFunction initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::driveAsyncFunction)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "driveAsyncFunction"_s, driveAsyncFunction, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: driveAsyncFunction initLater end");
+    WIN98_TRACE("JSGlobalObject::init: newHandledRejectedPromise initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::newHandledRejectedPromise)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "newHandledRejectedPromise"_s, newHandledRejectedPromise, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: newHandledRejectedPromise initLater end");
+    WIN98_TRACE("JSGlobalObject::init: promiseEmptyOnFulfilled initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::promiseEmptyOnFulfilled)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "promiseEmptyOnFulfilled"_s, promiseEmptyOnFulfilled, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: promiseEmptyOnFulfilled initLater end");
+    WIN98_TRACE("JSGlobalObject::init: promiseEmptyOnRejected initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::promiseEmptyOnRejected)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "promiseEmptyOnRejected"_s, promiseEmptyOnRejected, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: promiseEmptyOnRejected initLater end");
+    WIN98_TRACE("JSGlobalObject::init: promiseResolve initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::promiseResolve)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "promiseResolve"_s, promiseResolve, ImplementationVisibility::Private, PromiseResolveIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: promiseResolve initLater end");
+    WIN98_TRACE("JSGlobalObject::init: promiseReject initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::promiseReject)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "promiseReject"_s, promiseReject, ImplementationVisibility::Private, PromiseRejectIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: promiseReject initLater end");
+    WIN98_TRACE("JSGlobalObject::init: performPromiseThen initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::performPromiseThen)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 4, "performPromiseThen"_s, performPromiseThen, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: performPromiseThen initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: makeTypeError initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::makeTypeError)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "makeTypeError"_s, globalFuncMakeTypeError, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: makeTypeError initLater end");
+    WIN98_TRACE("JSGlobalObject::init: AggregateError initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::AggregateError)].initLater([] (const Initializer<JSCell>& init) {
             JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
             init.set(globalObject->m_aggregateErrorStructure.constructor(globalObject));
         });
+    WIN98_TRACE("JSGlobalObject::init: AggregateError initLater end");
+    WIN98_TRACE("JSGlobalObject::init: ReferenceError initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::ReferenceError)].initLater([] (const Initializer<JSCell>& init) {
         JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
         init.set(globalObject->m_referenceErrorStructure.constructor(globalObject));
     });
+    WIN98_TRACE("JSGlobalObject::init: ReferenceError initLater end");
+    WIN98_TRACE("JSGlobalObject::init: SuppressedError initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::SuppressedError)].initLater([] (const Initializer<JSCell>& init) {
         JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
         init.set(globalObject->m_suppressedErrorStructure.constructor(globalObject));
     });
+    WIN98_TRACE("JSGlobalObject::init: SuppressedError initLater end");
+    WIN98_TRACE("JSGlobalObject::init: DisposableStack initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::DisposableStack)].initLater([] (const Initializer<JSCell>& init) {
         JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
         init.set(globalObject->m_disposableStackStructure.constructor(globalObject));
     });
+    WIN98_TRACE("JSGlobalObject::init: DisposableStack initLater end");
+    WIN98_TRACE("JSGlobalObject::init: AsyncDisposableStack initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::AsyncDisposableStack)].initLater([] (const Initializer<JSCell>& init) {
         JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
         init.set(globalObject->m_asyncDisposableStackStructure.constructor(globalObject));
     });
+    WIN98_TRACE("JSGlobalObject::init: AsyncDisposableStack initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: typedArrayLength initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::typedArrayLength)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "typedArrayViewLength"_s, typedArrayViewPrivateFuncLength, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: typedArrayLength initLater end");
+    WIN98_TRACE("JSGlobalObject::init: isTypedArrayView initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isTypedArrayView)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "typedArrayViewIsTypedArrayView"_s, typedArrayViewPrivateFuncIsTypedArrayView, ImplementationVisibility::Private, IsTypedArrayViewIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: isTypedArrayView initLater end");
+    WIN98_TRACE("JSGlobalObject::init: isSharedTypedArrayView initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isSharedTypedArrayView)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "typedArrayViewIsSharedTypedArrayView"_s, typedArrayViewPrivateFuncIsSharedTypedArrayView, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: isSharedTypedArrayView initLater end");
+    WIN98_TRACE("JSGlobalObject::init: isResizableOrGrowableSharedTypedArrayView initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isResizableOrGrowableSharedTypedArrayView)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "typedArrayViewPrivateFuncIsResizableOrGrowableSharedTypedArrayView"_s, typedArrayViewPrivateFuncIsResizableOrGrowableSharedTypedArrayView, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: isResizableOrGrowableSharedTypedArrayView initLater end");
+    WIN98_TRACE("JSGlobalObject::init: typedArrayFromFast initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::typedArrayFromFast)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "typedArrayViewTypedArrayFromFast"_s, typedArrayViewPrivateFuncTypedArrayFromFast, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: typedArrayFromFast initLater end");
+    WIN98_TRACE("JSGlobalObject::init: arrayFromFastWithoutMapFn initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::arrayFromFastWithoutMapFn)].initLater([] (const Initializer<JSCell>& init) {
         init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "arrayFromFastWithoutMapFn"_s, arrayConstructorPrivateFromFastWithoutMapFn, ImplementationVisibility::Private));
     });
+    WIN98_TRACE("JSGlobalObject::init: arrayFromFastWithoutMapFn initLater end");
+    WIN98_TRACE("JSGlobalObject::init: isDetached initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isDetached)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "typedArrayViewIsDetached"_s, typedArrayViewPrivateFuncIsDetached, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: isDetached initLater end");
+    WIN98_TRACE("JSGlobalObject::init: isBoundFunction initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isBoundFunction)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "isBound"_s, isBoundFunction, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: isBoundFunction initLater end");
+    WIN98_TRACE("JSGlobalObject::init: hasInstanceBoundFunction initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::hasInstanceBoundFunction)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "hasInstanceBound"_s, hasInstanceBoundFunction, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: hasInstanceBoundFunction initLater end");
+    WIN98_TRACE("JSGlobalObject::init: instanceOf initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::instanceOf)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "instanceOf"_s, objectPrivateFuncInstanceOf, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: instanceOf initLater end");
+    WIN98_TRACE("JSGlobalObject::init: BuiltinLog initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::BuiltinLog)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "BuiltinLog"_s, globalFuncBuiltinLog, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: BuiltinLog initLater end");
+    WIN98_TRACE("JSGlobalObject::init: BuiltinDescribe initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::BuiltinDescribe)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "BuiltinDescribe"_s, globalFuncBuiltinDescribe, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: BuiltinDescribe initLater end");
+    WIN98_TRACE("JSGlobalObject::init: min initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::min)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "min"_s, mathProtoFuncMin, ImplementationVisibility::Private, MinIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: min initLater end");
+    WIN98_TRACE("JSGlobalObject::init: repeatCharacter initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::repeatCharacter)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "repeatCharacter"_s, stringProtoFuncRepeatCharacter, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: repeatCharacter initLater end");
+    WIN98_TRACE("JSGlobalObject::init: isArraySlow initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isArraySlow)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "isArraySlow"_s, arrayConstructorPrivateFuncIsArraySlow, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: isArraySlow initLater end");
+    WIN98_TRACE("JSGlobalObject::init: importInRealm initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::importInRealm)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "importInRealm"_s, importInRealm, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: importInRealm initLater end");
+    WIN98_TRACE("JSGlobalObject::init: evalFunction initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::evalFunction)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, init.vm.propertyNames->eval.string(), globalFuncEval, ImplementationVisibility::Public));
         });
+    WIN98_TRACE("JSGlobalObject::init: evalFunction initLater end");
+    WIN98_TRACE("JSGlobalObject::init: evalInRealm initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::evalInRealm)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "evalInRealm"_s, evalInRealm, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: evalInRealm initLater end");
+    WIN98_TRACE("JSGlobalObject::init: moveFunctionToRealm initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::moveFunctionToRealm)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "moveFunctionToRealm"_s, moveFunctionToRealm, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: moveFunctionToRealm initLater end");
+    WIN98_TRACE("JSGlobalObject::init: sameValue initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::sameValue)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "is"_s, objectConstructorIs, ImplementationVisibility::Private, ObjectIsIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: sameValue initLater end");
+    WIN98_TRACE("JSGlobalObject::init: setPrototypeDirect initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::setPrototypeDirect)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "setPrototypeDirect"_s, globalFuncSetPrototypeDirect, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: setPrototypeDirect initLater end");
+    WIN98_TRACE("JSGlobalObject::init: setPrototypeDirectOrThrow initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::setPrototypeDirectOrThrow)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "setPrototypeDirectOrThrow"_s, globalFuncSetPrototypeDirectOrThrow, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: setPrototypeDirectOrThrow initLater end");
+    WIN98_TRACE("JSGlobalObject::init: toIntegerOrInfinity initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::toIntegerOrInfinity)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "toIntegerOrInfinity"_s, globalFuncToIntegerOrInfinity, ImplementationVisibility::Private, ToIntegerOrInfinityIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: toIntegerOrInfinity initLater end");
+    WIN98_TRACE("JSGlobalObject::init: toLength initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::toLength)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "toLength"_s, globalFuncToLength, ImplementationVisibility::Private, ToLengthIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: toLength initLater end");
 
     // RegExp.prototype helpers.
+    WIN98_TRACE("JSGlobalObject::init: regExpCreate initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpCreate)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "esSpecRegExpCreate"_s, esSpecRegExpCreate, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: regExpCreate initLater end");
+    WIN98_TRACE("JSGlobalObject::init: isRegExp initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isRegExp)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "esSpecIsRegExp"_s, esSpecIsRegExp, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: isRegExp initLater end");
+    WIN98_TRACE("JSGlobalObject::init: regExpMatchFast initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpMatchFast)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "regExpMatchFast"_s, regExpProtoFuncMatchFast, ImplementationVisibility::Private, RegExpMatchFastIntrinsic));
         });
+    WIN98_TRACE("JSGlobalObject::init: regExpMatchFast initLater end");
+    WIN98_TRACE("JSGlobalObject::init: regExpSplitFast initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::regExpSplitFast)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "regExpSplitFast"_s, regExpProtoFuncSplitFast, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: regExpSplitFast initLater end");
 
     // String.prototype helpers.
+    WIN98_TRACE("JSGlobalObject::init: stringIncludesInternal initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::stringIncludesInternal)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "stringIncludesInternal"_s, builtinStringIncludesInternal, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: stringIncludesInternal initLater end");
+    WIN98_TRACE("JSGlobalObject::init: stringIndexOfInternal initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::stringIndexOfInternal)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "stringIndexOfInternal"_s, builtinStringIndexOfInternal, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: stringIndexOfInternal initLater end");
+    WIN98_TRACE("JSGlobalObject::init: stringSplitFast initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::stringSplitFast)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "stringSplitFast"_s, stringProtoFuncSplitFast, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: stringSplitFast initLater end");
 
     // Proxy helpers.
+    WIN98_TRACE("JSGlobalObject::init: handleNegativeProxyHasTrapResult initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::handleNegativeProxyHasTrapResult)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "handleNegativeProxyHasTrapResult"_s, globalFuncHandleNegativeProxyHasTrapResult, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: handleNegativeProxyHasTrapResult initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: handleProxyGetTrapResult initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::handleProxyGetTrapResult)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 3, "handleProxyGetTrapResult"_s, globalFuncHandleProxyGetTrapResult, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: handleProxyGetTrapResult initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: handlePositiveProxySetTrapResult initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::handlePositiveProxySetTrapResult)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 3, "handlePositiveProxySetTrapResult"_s, globalFuncHandlePositiveProxySetTrapResult, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: handlePositiveProxySetTrapResult initLater end");
 
     // PrivateSymbols / PrivateNames
+    WIN98_TRACE("JSGlobalObject::init: createPrivateSymbol initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::createPrivateSymbol)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "createPrivateSymbol"_s, createPrivateSymbol, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: createPrivateSymbol initLater end");
 
     // JSON helpers
+    WIN98_TRACE("JSGlobalObject::init: jsonParse initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::jsonParse)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 1, "parse"_s, jsonParse, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: jsonParse initLater end");
+    WIN98_TRACE("JSGlobalObject::init: jsonStringify initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::jsonStringify)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "stringify"_s, jsonStringify, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: jsonStringify initLater end");
 
     // ShadowRealms
+    WIN98_TRACE("JSGlobalObject::init: createRemoteFunction initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::createRemoteFunction)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "createRemoteFunction"_s, createRemoteFunction, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: createRemoteFunction initLater end");
+    WIN98_TRACE("JSGlobalObject::init: isRemoteFunction initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::isRemoteFunction)].initLater([] (const Initializer<JSCell>& init) {
             init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "isRemoteFunction"_s, isRemoteFunction, ImplementationVisibility::Private));
         });
+    WIN98_TRACE("JSGlobalObject::init: isRemoteFunction initLater end");
 
 #if ENABLE(WEBASSEMBLY)
     // WebAssembly Streaming API
@@ -2094,10 +2758,13 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
         });
 #endif
 
+    WIN98_TRACE("JSGlobalObject::init: emptyPropertyNameEnumerator initLater begin");
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::emptyPropertyNameEnumerator)].initLater([] (const Initializer<JSCell>& init) {
         init.set(init.vm.emptyPropertyNameEnumerator());
     });
+    WIN98_TRACE("JSGlobalObject::init: emptyPropertyNameEnumerator initLater end");
 
+    WIN98_TRACE("JSGlobalObject::init: performProxyObject linkTimeConstant set batch begin");
     m_performProxyObjectHasFunction.set(vm, this, jsCast<JSFunction*>(linkTimeConstant(LinkTimeConstant::performProxyObjectHas)));
     m_performProxyObjectHasByValFunction.set(vm, this, jsCast<JSFunction*>(linkTimeConstant(LinkTimeConstant::performProxyObjectHasByVal)));
     m_performProxyObjectGetFunction.set(vm, this, jsCast<JSFunction*>(linkTimeConstant(LinkTimeConstant::performProxyObjectGet)));
@@ -2106,7 +2773,9 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
     m_performProxyObjectSetSloppyFunction.set(vm, this, jsCast<JSFunction*>(linkTimeConstant(LinkTimeConstant::performProxyObjectSetSloppy)));
     m_performProxyObjectSetByValStrictFunction.set(vm, this, jsCast<JSFunction*>(linkTimeConstant(LinkTimeConstant::performProxyObjectSetByValStrict)));
     m_performProxyObjectSetByValSloppyFunction.set(vm, this, jsCast<JSFunction*>(linkTimeConstant(LinkTimeConstant::performProxyObjectSetByValSloppy)));
+    WIN98_TRACE("JSGlobalObject::init: performProxyObject linkTimeConstant set batch end");
 
+    WIN98_TRACE("JSGlobalObject::init: exposeProfilers conditional begin");
     if (Options::exposeProfilersOnGlobalObject()) {
 #if ENABLE(SAMPLING_PROFILER)
         putDirectWithoutTransition(vm, Identifier::fromString(vm, "__enableSamplingProfiler"_s), JSFunction::create(vm, this, 1, "enableSamplingProfiler"_s, enableSamplingProfiler, ImplementationVisibility::Public), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly);
@@ -2121,11 +2790,19 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
         putDirectWithoutTransition(vm, Identifier::fromString(vm, "__signpostStart"_s), JSFunction::create(vm, this, 1, "signpostStart"_s, signpostStart, ImplementationVisibility::Public), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly);
         putDirectWithoutTransition(vm, Identifier::fromString(vm, "__signpostStop"_s), JSFunction::create(vm, this, 1, "signpostStop"_s, signpostStop, ImplementationVisibility::Public), PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly);
     }
+    WIN98_TRACE("JSGlobalObject::init: exposeProfilers conditional end");
 
+    WIN98_TRACE("JSGlobalObject::init: initStaticGlobals begin");
     initStaticGlobals(vm);
+    WIN98_TRACE("JSGlobalObject::init: initStaticGlobals end");
     
-    if (Options::useDollarVM()) [[unlikely]]
+    WIN98_TRACE("JSGlobalObject::init: useDollarVM conditional begin");
+    if (Options::useDollarVM()) [[unlikely]] {
+        WIN98_TRACE("JSGlobalObject::init: exposeDollarVM begin");
         exposeDollarVM(vm);
+        WIN98_TRACE("JSGlobalObject::init: exposeDollarVM end");
+    }
+    WIN98_TRACE("JSGlobalObject::init: useDollarVM conditional end");
 
 #if ENABLE(WEBASSEMBLY)
     if (Wasm::isSupported()) {
@@ -2166,16 +2843,21 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
 #endif // ENABLE(WEBASSEMBLY)
 
     // Detect property change.
+    WIN98_TRACE("JSGlobalObject::init: property-change watchpoints array batch begin");
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, arrayIteratorPrototype, vm.propertyNames->next), m_arrayIteratorProtocolWatchpointSet);
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, this->arrayPrototype(), vm.propertyNames->iteratorSymbol), m_arrayIteratorProtocolWatchpointSet);
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, this->arrayPrototype(), vm.propertyNames->join), m_arrayJoinWatchpointSet);
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, this->arrayPrototype(), vm.propertyNames->toString), m_arrayToStringWatchpointSet);
+    WIN98_TRACE("JSGlobalObject::init: property-change watchpoints array batch end");
+    WIN98_TRACE("JSGlobalObject::init: property-change watchpoints iterator/string batch begin");
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, mapIteratorPrototype, vm.propertyNames->next), m_mapIteratorProtocolWatchpointSet);
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, setIteratorPrototype, vm.propertyNames->next), m_setIteratorProtocolWatchpointSet);
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, m_stringIteratorPrototype.get(), vm.propertyNames->next), m_stringIteratorProtocolWatchpointSet);
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, m_stringPrototype.get(), vm.propertyNames->iteratorSymbol), m_stringIteratorProtocolWatchpointSet);
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, m_stringPrototype.get(), vm.propertyNames->toString), m_stringToStringWatchpointSet);
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, m_stringPrototype.get(), vm.propertyNames->valueOf), m_stringValueOfWatchpointSet);
+    WIN98_TRACE("JSGlobalObject::init: property-change watchpoints iterator/string batch end");
+    WIN98_TRACE("JSGlobalObject::init: property-change watchpoints regexp batch begin");
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, m_regExpPrototype.get(), vm.propertyNames->exec), m_regExpPrimordialPropertiesWatchpointSet);
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, m_regExpPrototype.get(), vm.propertyNames->flags), m_regExpPrimordialPropertiesWatchpointSet);
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, m_regExpPrototype.get(), vm.propertyNames->dotAll), m_regExpPrimordialPropertiesWatchpointSet);
@@ -2188,13 +2870,33 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, m_regExpPrototype.get(), vm.propertyNames->unicodeSets), m_regExpPrimordialPropertiesWatchpointSet);
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, m_regExpPrototype.get(), vm.propertyNames->replaceSymbol), m_regExpPrimordialPropertiesWatchpointSet);
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, m_regExpPrototype.get(), vm.propertyNames->matchSymbol), m_regExpPrimordialPropertiesWatchpointSet);
+    WIN98_TRACE("JSGlobalObject::init: property-change watchpoints regexp batch end");
+    WIN98_TRACE("JSGlobalObject::init: property-change watchpoints set/promise batch begin");
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    WIN98_TRACE("JSGlobalObject::init: legacy skip set/promise watchpoints begin");
+    m_setPrimordialPropertiesWatchpointSet.fireAll(vm, "Win98 legacy skips Set primordial adaptive watchpoints");
+    m_promiseThenWatchpointSet.fireAll(vm, "Win98 legacy skips Promise.then adaptive watchpoint");
+    m_promiseResolveWatchpointSet.fireAll(vm, "Win98 legacy skips Promise.resolve adaptive watchpoint");
+    WIN98_TRACE("JSGlobalObject::init: legacy skip set/promise watchpoints end");
+#else
+    WIN98_TRACE("JSGlobalObject::init: property-change watchpoint Set.has begin");
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, jsSetPrototype(), vm.propertyNames->has), m_setPrimordialPropertiesWatchpointSet);
+    WIN98_TRACE("JSGlobalObject::init: property-change watchpoint Set.has end");
+    WIN98_TRACE("JSGlobalObject::init: property-change watchpoint Set.keys begin");
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, jsSetPrototype(), vm.propertyNames->keys), m_setPrimordialPropertiesWatchpointSet);
+    WIN98_TRACE("JSGlobalObject::init: property-change watchpoint Set.keys end");
 
+    WIN98_TRACE("JSGlobalObject::init: property-change watchpoint Promise.then begin");
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, promisePrototype(), vm.propertyNames->then), m_promiseThenWatchpointSet);
+    WIN98_TRACE("JSGlobalObject::init: property-change watchpoint Promise.then end");
+    WIN98_TRACE("JSGlobalObject::init: property-change watchpoint Promise.resolve begin");
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, m_promiseConstructor.get(), vm.propertyNames->resolve), m_promiseResolveWatchpointSet);
+    WIN98_TRACE("JSGlobalObject::init: property-change watchpoint Promise.resolve end");
+#endif
+    WIN98_TRACE("JSGlobalObject::init: property-change watchpoints set/promise batch end");
 
     // Detect property absence.
+    WIN98_TRACE("JSGlobalObject::init: absence watchpoints string/array batch begin");
     installObjectAdaptiveStructureWatchpoint(setupAbsenceAdaptiveWatchpoint(this, m_stringPrototype.get(), vm.propertyNames->replaceSymbol, objectPrototype()), m_stringSymbolReplaceWatchpointSet);
     installObjectAdaptiveStructureWatchpoint(setupAbsenceAdaptiveWatchpoint(this, m_objectPrototype.get(), vm.propertyNames->replaceSymbol, nullptr), m_stringSymbolReplaceWatchpointSet);
     installObjectAdaptiveStructureWatchpoint(setupAbsenceAdaptiveWatchpoint(this, m_stringPrototype.get(), vm.propertyNames->toPrimitiveSymbol, objectPrototype()), m_stringSymbolToPrimitiveWatchpointSet);
@@ -2205,32 +2907,49 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
     installObjectAdaptiveStructureWatchpoint(setupAbsenceAdaptiveWatchpoint(this, m_objectPrototype.get(), vm.propertyNames->negativeOneIdentifier, nullptr), m_arrayNegativeOneWatchpointSet);
     installObjectAdaptiveStructureWatchpoint(setupAbsenceAdaptiveWatchpoint(this, m_arrayPrototype.get(), vm.propertyNames->isConcatSpreadableSymbol, objectPrototype()), m_arrayIsConcatSpreadableWatchpointSet);
     installObjectAdaptiveStructureWatchpoint(setupAbsenceAdaptiveWatchpoint(this, m_objectPrototype.get(), vm.propertyNames->isConcatSpreadableSymbol, nullptr), m_arrayIsConcatSpreadableWatchpointSet);
+    WIN98_TRACE("JSGlobalObject::init: absence watchpoints string/array batch end");
 
     // Array Species watchpoint.
+    WIN98_TRACE("JSGlobalObject::init: array species watchpoint block begin");
     {
         RELEASE_ASSERT(!m_arrayPrototypeConstructorWatchpoint);
         RELEASE_ASSERT(!m_arrayConstructorSpeciesWatchpoint);
         tryInstallSpeciesWatchpoint(this->arrayPrototype(), arrayConstructor, m_arrayPrototypeConstructorWatchpoint, m_arrayConstructorSpeciesWatchpoint, m_arraySpeciesWatchpointSet, HasSpeciesProperty::Yes, arraySpeciesGetterSetter());
         catchScope.assertNoException();
     }
+    WIN98_TRACE("JSGlobalObject::init: array species watchpoint block end");
+    WIN98_TRACE("JSGlobalObject::init: promise species watchpoint block begin");
     {
         tryInstallSpeciesWatchpoint(this->promisePrototype(), promiseConstructor, m_promisePrototypeConstructorWatchpoint, m_promiseConstructorSpeciesWatchpoint, m_promiseSpeciesWatchpointSet, HasSpeciesProperty::Yes, promiseSpeciesGetterSetter());
         catchScope.assertNoException();
     }
+    WIN98_TRACE("JSGlobalObject::init: promise species watchpoint block end");
 
+    WIN98_TRACE("JSGlobalObject::init: installSaneChainWatchpoints begin");
     installSaneChainWatchpoints();
+    WIN98_TRACE("JSGlobalObject::init: installSaneChainWatchpoints end");
 
     // Unfortunately, the prototype objects of the builtin objects can be touched from concurrent compilers. So eagerly initialize them only if we use JIT.
+    WIN98_TRACE("JSGlobalObject::init: useJIT eager prototype conditional begin");
     if (Options::useJIT()) {
         this->booleanPrototype();
         this->numberPrototype();
         this->symbolPrototype();
     }
+    WIN98_TRACE("JSGlobalObject::init: useJIT eager prototype conditional end");
 
+    WIN98_TRACE("JSGlobalObject::init: fixupPrototypeChainWithObjectPrototype begin");
     fixupPrototypeChainWithObjectPrototype(vm);
+    WIN98_TRACE("JSGlobalObject::init: fixupPrototypeChainWithObjectPrototype end");
 
-    if (Options::alwaysHaveABadTime()) [[unlikely]]
+    WIN98_TRACE("JSGlobalObject::init: alwaysHaveABadTime conditional begin");
+    if (Options::alwaysHaveABadTime()) [[unlikely]] {
+        WIN98_TRACE("JSGlobalObject::init: haveABadTime begin");
         this->haveABadTime(vm);
+        WIN98_TRACE("JSGlobalObject::init: haveABadTime end");
+    }
+    WIN98_TRACE("JSGlobalObject::init: alwaysHaveABadTime conditional end");
+    WIN98_TRACE("JSGlobalObject::init: end");
 }
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
@@ -3391,10 +4110,19 @@ void JSGlobalObject::installMapPrototypeWatchpoint(MapPrototype* mapPrototype)
 void JSGlobalObject::installSetPrototypeWatchpoint(SetPrototype* setPrototype)
 {
     VM& vm = this->vm();
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    WIN98_TRACE("JSGlobalObject::installSetPrototypeWatchpoint: legacy invalidate begin");
+    if (m_setIteratorProtocolWatchpointSet.isStillValid())
+        m_setIteratorProtocolWatchpointSet.fireAll(vm, "Win98 legacy skips Set prototype iterator adaptive watchpoint");
+    if (m_setAddWatchpointSet.isStillValid())
+        m_setAddWatchpointSet.fireAll(vm, "Win98 legacy skips Set.prototype.add adaptive watchpoint");
+    WIN98_TRACE("JSGlobalObject::installSetPrototypeWatchpoint: legacy invalidate end");
+#else
     if (m_setIteratorProtocolWatchpointSet.isStillValid())
         installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, setPrototype, vm.propertyNames->iteratorSymbol), m_setIteratorProtocolWatchpointSet);
     ASSERT(m_setAddWatchpointSet.isStillValid());
     installObjectPropertyChangeAdaptiveWatchpoint(setupAdaptiveWatchpoint(this, setPrototype, vm.propertyNames->add), m_setAddWatchpointSet);
+#endif
 }
 
 void JSGlobalObject::installObjectAdaptiveStructureWatchpoint(const ObjectPropertyCondition& key, InlineWatchpointSet& watchpointSet)
@@ -3639,24 +4367,48 @@ JSGlobalObject* JSGlobalObject::createWithCustomMethodTable(VM& vm, Structure* s
 
 void JSGlobalObject::finishCreation(VM& vm)
 {
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm): enter");
     DeferTermination deferTermination(vm);
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm): Base begin");
     Base::finishCreation(vm);
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm): Base end");
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm): setGlobalObject begin");
     structure()->setGlobalObject(vm, this);
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm): setGlobalObject end");
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm): runtimeFlags begin");
     m_runtimeFlags = m_globalObjectMethodTable->javaScriptRuntimeFlags(this);
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm): runtimeFlags end");
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm): init begin");
     init(vm);
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm): init end");
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm): setGlobalThis begin");
     setGlobalThis(vm, JSGlobalProxy::create(vm, JSGlobalProxy::createStructure(vm, this, getPrototypeDirect()), this));
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm): setGlobalThis end");
     ASSERT(type() == GlobalObjectType);
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm): exit");
 }
 
 void JSGlobalObject::finishCreation(VM& vm, JSObject* thisValue)
 {
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm,this): enter");
     DeferTermination deferTermination(vm);
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm,this): Base begin");
     Base::finishCreation(vm);
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm,this): Base end");
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm,this): setGlobalObject begin");
     structure()->setGlobalObject(vm, this);
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm,this): setGlobalObject end");
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm,this): runtimeFlags begin");
     m_runtimeFlags = m_globalObjectMethodTable->javaScriptRuntimeFlags(this);
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm,this): runtimeFlags end");
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm,this): init begin");
     init(vm);
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm,this): init end");
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm,this): setGlobalThis begin");
     setGlobalThis(vm, thisValue);
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm,this): setGlobalThis end");
     ASSERT(type() == GlobalObjectType);
+    WIN98_TRACE("JSGlobalObject::finishCreation(vm,this): exit");
 }
 
 #ifdef JSC_GLIB_API_ENABLED

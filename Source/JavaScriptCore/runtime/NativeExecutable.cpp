@@ -41,9 +41,11 @@ NativeExecutable* NativeExecutable::create(VM& vm, Ref<JSC::JITCode>&& callThunk
     executable = new (NotNull, allocateCell<NativeExecutable>(vm)) NativeExecutable(vm, function, constructor, implementationVisibility);
     executable->finishCreation(vm, WTF::move(callThunk), WTF::move(constructThunk), name);
 
+#if !defined(WEBKIT_WINDOWS_LEGACY_TARGET)
     vm.forEachDebugger([&] (Debugger& debugger) {
         debugger.didCreateNativeExecutable(*executable);
     });
+#endif
 
     return executable;
 }

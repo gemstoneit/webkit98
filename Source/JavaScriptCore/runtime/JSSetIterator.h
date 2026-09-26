@@ -29,6 +29,15 @@
 #include <JavaScriptCore/JSInternalFieldObjectImpl.h>
 #include <JavaScriptCore/JSSet.h>
 
+#ifndef WIN98_TRACE
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+#endif
+
 namespace JSC {
 
 const static uint8_t JSSetIteratorNumberOFInternalFields = 4;
@@ -81,14 +90,20 @@ public:
 
     ALWAYS_INLINE JSValue nextWithAdvance(VM& vm)
     {
+        WIN98_TRACE("JSSetIterator::nextWithAdvance: enter");
         JSCell* sentinel = vm.orderedHashTableSentinel();
+        WIN98_TRACE("JSSetIterator::nextWithAdvance: got sentinel");
         JSCell* storage = this->tryGetStorage();
+        WIN98_TRACE("JSSetIterator::nextWithAdvance: got storage");
         if (storage == sentinel)
             return { };
 
         if (!storage) {
+            WIN98_TRACE("JSSetIterator::nextWithAdvance: storage missing");
             storage = iteratedObject()->storage();
+            WIN98_TRACE("JSSetIterator::nextWithAdvance: iterated storage fetched");
             if (!storage) {
+                WIN98_TRACE("JSSetIterator::nextWithAdvance: iterated storage empty");
                 markClosed(sentinel);
                 return { };
             }
@@ -97,18 +112,29 @@ public:
             // the iterator is created with empty set and set gets a new
             // entry before this iterator.next() is called.
             setStorage(vm, storage);
+            WIN98_TRACE("JSSetIterator::nextWithAdvance: late storage set");
         }
 
+        WIN98_TRACE("JSSetIterator::nextWithAdvance: before storage cast");
         JSSet::Storage& storageRef = *jsCast<JSSet::Storage*>(storage);
+        WIN98_TRACE("JSSetIterator::nextWithAdvance: before transitAndNext");
         auto result = JSSet::Helper::transitAndNext(vm, storageRef, entry());
+        WIN98_TRACE("JSSetIterator::nextWithAdvance: after transitAndNext");
         if (!result.storage) {
+            WIN98_TRACE("JSSetIterator::nextWithAdvance: no result storage");
             markClosed(sentinel);
             return { };
         }
 
+        WIN98_TRACE("JSSetIterator::nextWithAdvance: before setEntry");
         setEntry(vm, result.entry + 1);
-        if (result.storage != storage)
+        WIN98_TRACE("JSSetIterator::nextWithAdvance: after setEntry");
+        if (result.storage != storage) {
+            WIN98_TRACE("JSSetIterator::nextWithAdvance: before setStorage");
             setStorage(vm, result.storage);
+            WIN98_TRACE("JSSetIterator::nextWithAdvance: after setStorage");
+        }
+        WIN98_TRACE("JSSetIterator::nextWithAdvance: return key");
         return result.key;
     }
 

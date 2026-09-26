@@ -33,6 +33,13 @@
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+
 namespace JSC {
 
 static JSC_DECLARE_HOST_FUNCTION(objectProtoFuncValueOf);
@@ -56,11 +63,29 @@ ObjectPrototype::ObjectPrototype(VM& vm, Structure* stucture)
 
 void ObjectPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
 {
+    WIN98_TRACE("ObjectPrototype::finishCreation: enter");
+    WIN98_TRACE("ObjectPrototype::finishCreation: Base begin");
     Base::finishCreation(vm);
+    WIN98_TRACE("ObjectPrototype::finishCreation: Base end");
     ASSERT(inherits(info()));
-    
-    putDirectWithoutTransition(vm, vm.propertyNames->toString, globalObject->objectProtoToStringFunction(), static_cast<unsigned>(PropertyAttribute::DontEnum));
+
+    WIN98_TRACE("ObjectPrototype::finishCreation: toString begin");
+    WIN98_TRACE("ObjectPrototype::finishCreation: propertyNames begin");
+    auto* propertyNames = vm.propertyNames;
+    WIN98_TRACE(propertyNames ? "ObjectPrototype::finishCreation: propertyNames nonnull" : "ObjectPrototype::finishCreation: propertyNames null");
+    WIN98_TRACE("ObjectPrototype::finishCreation: toString identifier begin");
+    auto toStringProperty = propertyNames->toString;
+    WIN98_TRACE("ObjectPrototype::finishCreation: toString identifier end");
+    WIN98_TRACE("ObjectPrototype::finishCreation: toString function begin");
+    auto* toStringFunction = globalObject->objectProtoToStringFunction();
+    WIN98_TRACE("ObjectPrototype::finishCreation: toString function end");
+    WIN98_TRACE("ObjectPrototype::finishCreation: putDirectWithoutTransition begin");
+    putDirectWithoutTransition(vm, toStringProperty, toStringFunction, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    WIN98_TRACE("ObjectPrototype::finishCreation: putDirectWithoutTransition end");
+    WIN98_TRACE("ObjectPrototype::finishCreation: toString end");
+    WIN98_TRACE("ObjectPrototype::finishCreation: toLocaleString begin");
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->toLocaleString, objectProtoFuncToLocaleString, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, ImplementationVisibility::Public);
+    WIN98_TRACE("ObjectPrototype::finishCreation: toLocaleString end");
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->valueOf, objectProtoFuncValueOf, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, ImplementationVisibility::Public);
     JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->hasOwnProperty, objectProtoFuncHasOwnProperty, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Public, HasOwnPropertyIntrinsic);
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->propertyIsEnumerable, objectProtoFuncPropertyIsEnumerable, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Public);
@@ -69,6 +94,7 @@ void ObjectPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->__defineSetter__, objectProtoFuncDefineSetter, static_cast<unsigned>(PropertyAttribute::DontEnum), 2, ImplementationVisibility::Public);
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->__lookupGetter__, objectProtoFuncLookupGetter, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Public);
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->__lookupSetter__, objectProtoFuncLookupSetter, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Public);
+    WIN98_TRACE("ObjectPrototype::finishCreation: exit");
 }
 
 ObjectPrototype* ObjectPrototype::create(VM& vm, JSGlobalObject* globalObject, Structure* structure)

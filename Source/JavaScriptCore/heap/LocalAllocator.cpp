@@ -158,11 +158,17 @@ void* LocalAllocator::allocateSlowCase(JSC::Heap& heap, size_t cellSize, GCDefer
 
 void LocalAllocator::didConsumeFreeList()
 {
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    m_freeList.clear();
+    m_currentBlock = nullptr;
+    return;
+#else
     if (m_currentBlock)
         m_currentBlock->didConsumeFreeList();
     
     m_freeList.clear();
     m_currentBlock = nullptr;
+#endif
 }
 
 void* LocalAllocator::tryAllocateWithoutCollecting(size_t cellSize)
@@ -271,4 +277,3 @@ void LocalAllocator::doTestCollectionsIfNeeded(JSC::Heap& heap, GCDeferralContex
 }
 
 } // namespace JSC
-

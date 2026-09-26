@@ -57,8 +57,12 @@ inline void ChainedWatchpoint::install(InlineWatchpointSet& fromWatchpoint, VM&)
 
 inline void ChainedWatchpoint::fireInternal(VM& vm, const FireDetail&)
 {
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    m_watchpointSet.fireAll(vm, StringFireDetail("chained watchpoint is fired."));
+#else
     if (!m_owner->isPendingDestruction())
         m_watchpointSet.fireAll(vm, StringFireDetail("chained watchpoint is fired."));
+#endif
 }
 
 } // namespace JSC

@@ -41,6 +41,15 @@
 #include <JavaScriptCore/TypedArrayType.h>
 #include <JavaScriptCore/VM.h>
 
+#ifndef WIN98_TRACE
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+#endif
+
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace JSC {
@@ -444,6 +453,9 @@ ALWAYS_INLINE bool JSObject::hasOwnProperty(JSGlobalObject* globalObject, unsign
 template<JSObject::PutMode mode>
 ALWAYS_INLINE ASCIILiteral JSObject::putDirectInternal(VM& vm, PropertyName propertyName, JSValue value, unsigned newAttributes, PutPropertySlot& slot)
 {
+    constexpr bool win98TraceLengthProperty = false;
+    if (win98TraceLengthProperty)
+        WIN98_TRACE("JSObject::putDirectInternal(length): enter");
     ASSERT(value);
     ASSERT(value.isGetterSetter() == !!(newAttributes & PropertyAttribute::Accessor));
     ASSERT(value.isCustomGetterSetter() == !!(newAttributes & PropertyAttribute::CustomAccessorOrValue));
@@ -452,7 +464,11 @@ ALWAYS_INLINE ASCIILiteral JSObject::putDirectInternal(VM& vm, PropertyName prop
 
     StructureID structureID = this->structureID();
     Structure* structure = structureID.decode();
+    if (win98TraceLengthProperty)
+        WIN98_TRACE("JSObject::putDirectInternal(length): decoded structure");
     if (structure->isDictionary()) {
+        if (win98TraceLengthProperty)
+            WIN98_TRACE("JSObject::putDirectInternal(length): dictionary branch");
         ASSERT(!isCopyOnWrite(indexingMode()));
         if constexpr (mode == PutModePut) {
             if (!isStructureExtensible()) [[unlikely]]
@@ -511,32 +527,62 @@ ALWAYS_INLINE ASCIILiteral JSObject::putDirectInternal(VM& vm, PropertyName prop
 
     {
         PropertyOffset offset;
+        if (win98TraceLengthProperty)
+            WIN98_TRACE("JSObject::putDirectInternal(length): existing transition begin");
         Structure* newStructure = Structure::addPropertyTransitionToExistingStructure(structure, propertyName, newAttributes, offset);
+        if (win98TraceLengthProperty)
+            WIN98_TRACE(newStructure ? "JSObject::putDirectInternal(length): existing transition hit" : "JSObject::putDirectInternal(length): existing transition miss");
         if (newStructure) {
             Butterfly* newButterfly = butterfly();
+            if (win98TraceLengthProperty)
+                WIN98_TRACE("JSObject::putDirectInternal(length): existing transition butterfly begin");
             if (structure->outOfLineCapacity() != newStructure->outOfLineCapacity()) {
                 ASSERT(newStructure != this->structure());
+                if (win98TraceLengthProperty)
+                    WIN98_TRACE("JSObject::putDirectInternal(length): existing transition allocate storage begin");
                 newButterfly = allocateMoreOutOfLineStorage(vm, structure->outOfLineCapacity(), newStructure->outOfLineCapacity());
+                if (win98TraceLengthProperty)
+                    WIN98_TRACE("JSObject::putDirectInternal(length): existing transition allocate storage end");
                 nukeStructureAndSetButterfly(vm, structureID, newButterfly);
             }
+            if (win98TraceLengthProperty)
+                WIN98_TRACE("JSObject::putDirectInternal(length): existing transition butterfly end");
 
+            if (win98TraceLengthProperty)
+                WIN98_TRACE("JSObject::putDirectInternal(length): existing transition validate begin");
             validateOffset(offset);
             ASSERT(newStructure->isValidOffset(offset));
+            if (win98TraceLengthProperty)
+                WIN98_TRACE("JSObject::putDirectInternal(length): existing transition validate end");
 
             // This assertion verifies that the concurrent GC won't read garbage if the concurrentGC
             // is running at the same time we put without transitioning.
             ASSERT(!getDirect(offset) || !JSValue::encode(getDirect(offset)));
+            if (win98TraceLengthProperty)
+                WIN98_TRACE("JSObject::putDirectInternal(length): existing transition put offset begin");
             putDirectOffset(vm, offset, value);
+            if (win98TraceLengthProperty)
+                WIN98_TRACE("JSObject::putDirectInternal(length): existing transition put offset end");
+            if (win98TraceLengthProperty)
+                WIN98_TRACE("JSObject::putDirectInternal(length): existing transition set structure begin");
             setStructure(vm, newStructure);
+            if (win98TraceLengthProperty)
+                WIN98_TRACE("JSObject::putDirectInternal(length): existing transition set structure end");
             slot.setNewProperty(this, offset);
             if (mayBePrototype()) [[unlikely]]
                 vm.invalidateStructureChainIntegrity(VM::StructureChainIntegrityEvent::Add);
+            if (win98TraceLengthProperty)
+                WIN98_TRACE("JSObject::putDirectInternal(length): existing transition exit");
             return { };
         }
     }
 
+    if (win98TraceLengthProperty)
+        WIN98_TRACE("JSObject::putDirectInternal(length): structure get begin");
     unsigned currentAttributes;
     PropertyOffset offset = structure->get(vm, propertyName, currentAttributes);
+    if (win98TraceLengthProperty)
+        WIN98_TRACE(offset != invalidOffset ? "JSObject::putDirectInternal(length): structure get hit" : "JSObject::putDirectInternal(length): structure get miss");
     if (offset != invalidOffset) {
         if (mode == PutModePut && (currentAttributes & PropertyAttribute::ReadOnlyOrAccessorOrCustomAccessor))
             return ReadonlyPropertyChangeError;
@@ -568,29 +614,51 @@ ALWAYS_INLINE ASCIILiteral JSObject::putDirectInternal(VM& vm, PropertyName prop
     
     // We want the structure transition watchpoint to fire after this object has switched structure.
     // This allows adaptive watchpoints to observe if the new structure is the one we want.
+    if (win98TraceLengthProperty)
+        WIN98_TRACE("JSObject::putDirectInternal(length): add new transition begin");
     DeferredStructureTransitionWatchpointFire deferredWatchpointFire(vm, structure);
     Structure* newStructure = Structure::addNewPropertyTransition(vm, structure, propertyName, newAttributes, offset, slot.context(), &deferredWatchpointFire);
+    if (win98TraceLengthProperty)
+        WIN98_TRACE("JSObject::putDirectInternal(length): add new transition end");
     
+    if (win98TraceLengthProperty)
+        WIN98_TRACE("JSObject::putDirectInternal(length): new transition validate begin");
     validateOffset(offset);
     ASSERT(newStructure->isValidOffset(offset));
+    if (win98TraceLengthProperty)
+        WIN98_TRACE("JSObject::putDirectInternal(length): new transition validate end");
     size_t oldCapacity = structure->outOfLineCapacity();
     size_t newCapacity = newStructure->outOfLineCapacity();
     ASSERT(oldCapacity <= newCapacity);
     if (oldCapacity != newCapacity) {
+        if (win98TraceLengthProperty)
+            WIN98_TRACE("JSObject::putDirectInternal(length): new transition allocate storage begin");
         Butterfly* newButterfly = allocateMoreOutOfLineStorage(vm, oldCapacity, newCapacity);
+        if (win98TraceLengthProperty)
+            WIN98_TRACE("JSObject::putDirectInternal(length): new transition allocate storage end");
         nukeStructureAndSetButterfly(vm, structureID, newButterfly);
     }
 
     // This assertion verifies that the concurrent GC won't read garbage if the concurrentGC
     // is running at the same time we put without transitioning.
     ASSERT(!getDirect(offset) || !JSValue::encode(getDirect(offset)));
+    if (win98TraceLengthProperty)
+        WIN98_TRACE("JSObject::putDirectInternal(length): new transition put offset begin");
     putDirectOffset(vm, offset, value);
+    if (win98TraceLengthProperty)
+        WIN98_TRACE("JSObject::putDirectInternal(length): new transition put offset end");
+    if (win98TraceLengthProperty)
+        WIN98_TRACE("JSObject::putDirectInternal(length): new transition set structure begin");
     setStructure(vm, newStructure);
+    if (win98TraceLengthProperty)
+        WIN98_TRACE("JSObject::putDirectInternal(length): new transition set structure end");
     slot.setNewProperty(this, offset);
     if (newAttributes & PropertyAttribute::ReadOnly)
         newStructure->setContainsReadOnlyProperties();
     if (mayBePrototype()) [[unlikely]]
         vm.invalidateStructureChainIntegrity(VM::StructureChainIntegrityEvent::Add);
+    if (win98TraceLengthProperty)
+        WIN98_TRACE("JSObject::putDirectInternal(length): new transition exit");
     return { };
 }
 

@@ -149,6 +149,13 @@
 #include <wtf/win/WTFCRTDebug.h>
 #endif
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+
 #if OS(DARWIN) && CPU(ARM_THUMB2)
 #include <fenv.h>
 #include <arm/arch.h>
@@ -460,14 +467,21 @@ struct Script {
     ScriptType scriptType;
     String argument;
 
-    Script(StrictMode strictMode, CodeSource codeSource, ScriptType scriptType, char *argument)
+    Script(StrictMode strictMode, CodeSource codeSource, ScriptType scriptType, char *argumentValue)
         : strictMode(strictMode)
         , codeSource(codeSource)
         , scriptType(scriptType)
-        , argument(String::fromLatin1(argument))
     {
+        WIN98_TRACE("Script: ctor body enter");
+        WIN98_TRACE("Script: fromLatin1 begin");
+        if (argumentValue)
+            argument = String::fromLatin1(argumentValue);
+        else
+            argument = String();
+        WIN98_TRACE("Script: fromLatin1 end");
         if (strictMode == StrictMode::Strict)
             ASSERT(codeSource == CodeSource::File);
+        WIN98_TRACE("Script: ctor body exit");
     }
 };
 
@@ -475,7 +489,10 @@ class CommandLine {
 public:
     CommandLine(int argc, char** argv)
     {
+        WIN98_TRACE("CommandLine: ctor enter");
+        WIN98_TRACE("CommandLine: parseArguments begin");
         parseArguments(argc, argv);
+        WIN98_TRACE("CommandLine: parseArguments end");
     }
 
     enum CommandLineForWorkersTag { CommandLineForWorkers };
@@ -3585,6 +3602,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 int main(int argc, char** argv)
 {
+    WIN98_TRACE("main: enter");
 #if OS(DARWIN)
 #if __has_include(<libproc.h>)
     // Let the kernel kill us when OOM
@@ -3596,6 +3614,7 @@ int main(int argc, char** argv)
 #endif
 
 #if OS(WINDOWS)
+    WIN98_TRACE("main: windows setup begin");
     // Cygwin calls ::SetErrorMode(SEM_FAILCRITICALERRORS), which we will inherit. This is bad for
     // testing/debugging, as it causes the post-mortem debugger not to be invoked. We reset the
     // error mode here to work around Cygwin's behavior. See <http://webkit.org/b/55222>.
@@ -3607,6 +3626,7 @@ int main(int argc, char** argv)
     WTF::disableCRTDebugAssertDialog();
 
     timeBeginPeriod(1);
+    WIN98_TRACE("main: windows setup end");
 #endif
 
 #if PLATFORM(GTK)
@@ -3617,7 +3637,9 @@ int main(int argc, char** argv)
     // Need to initialize WTF before we start any threads. Cannot initialize JSC
     // yet, since that would do somethings that we'd like to defer until after we
     // have a chance to parse options.
+    WIN98_TRACE("main: WTF::initialize begin");
     WTF::initialize();
+    WIN98_TRACE("main: WTF::initialize end");
 #if PLATFORM(COCOA) || OS(ANDROID)
     WTF::disableForwardingVPrintfStdErrToOSLog();
 #endif
@@ -3646,9 +3668,11 @@ int main(int argc, char** argv)
     // We can't use destructors in the following code because it uses Windows
     // Structured Exception Handling
     int res = EXIT_SUCCESS;
+    WIN98_TRACE("main: jscmain begin");
     TRY
         res = jscmain(argc, argv);
     EXCEPT(res = EXIT_EXCEPTION)
+    WIN98_TRACE("main: jscmain end");
     finalizeStatsAtEndOfTesting();
     if (getenv("JS_SHELL_WAIT_FOR_INPUT_TO_EXIT")) {
         WTF::fastDisableScavenger();
@@ -3817,6 +3841,7 @@ void GlobalObject::reportUncaughtExceptionAtEventLoop(JSGlobalObject* globalObje
 
 static void runWithOptions(GlobalObject* globalObject, CommandLine& options, bool& success)
 {
+    WIN98_TRACE("runWithOptions: enter");
     Vector<Script>& scripts = options.m_scripts;
     String fileName;
     Vector<char> scriptBuffer;
@@ -3829,11 +3854,13 @@ static void runWithOptions(GlobalObject* globalObject, CommandLine& options, boo
 #endif
 
     for (size_t i = 0; i < scripts.size(); i++) {
+        WIN98_TRACE("runWithOptions: script begin");
         JSInternalPromise* promise = nullptr;
         bool isModule = options.m_module || scripts[i].scriptType == Script::ScriptType::Module;
 
         switch (scripts[i].codeSource) {
         case Script::CodeSource::File: {
+            WIN98_TRACE("runWithOptions: file source begin");
             fileName = scripts[i].argument;
             if (scripts[i].strictMode == Script::StrictMode::Strict)
                 scriptBuffer.append("\"use strict\";\n"_span);
@@ -3844,14 +3871,18 @@ static void runWithOptions(GlobalObject* globalObject, CommandLine& options, boo
                 promise = loadAndEvaluateModule(globalObject, fileName, jsUndefined(), jsUndefined());
                 RETURN_IF_EXCEPTION(scope, void());
             } else {
+                WIN98_TRACE("runWithOptions: fetch script begin");
                 if (!fetchScriptFromLocalFileSystem(fileName, scriptBuffer)) {
                     success = false; // fail early so we can catch missing files
+                    WIN98_TRACE("runWithOptions: fetch script failed");
                     return;
                 }
+                WIN98_TRACE("runWithOptions: fetch script end");
             }
             break;
         }
         case Script::CodeSource::CommandLine: {
+            WIN98_TRACE("runWithOptions: command line source begin");
             size_t commandLineLength = scripts[i].argument.length();
             scriptBuffer.resize(commandLineLength);
             std::copy_n(scripts[i].argument.impl()->span8().data(), commandLineLength, scriptBuffer.begin());
@@ -3890,21 +3921,27 @@ static void runWithOptions(GlobalObject* globalObject, CommandLine& options, boo
             scope.releaseAssertNoExceptionExceptTermination();
             vm.drainMicrotasks();
         } else {
+            WIN98_TRACE("runWithOptions: evaluate begin");
             NakedPtr<Exception> evaluationException;
             JSValue returnValue = evaluate(globalObject, jscSource(scriptBuffer, sourceOrigin , fileName), JSValue(), evaluationException);
+            WIN98_TRACE("runWithOptions: evaluate end");
             scope.assertNoException();
             if (evaluationException)
                 returnValue = evaluationException->value();
+            WIN98_TRACE("runWithOptions: checkException begin");
             checkException(globalObject, isLastFile, evaluationException, returnValue, options, success);
+            WIN98_TRACE("runWithOptions: checkException end");
         }
 
         scriptBuffer.clear();
         scope.clearException();
+        WIN98_TRACE("runWithOptions: script end");
     }
 
 #if ENABLE(REGEXP_TRACING)
     vm.dumpRegExpTrace();
 #endif
+    WIN98_TRACE("runWithOptions: exit");
 }
 
 #define RUNNING_FROM_XCODE 0
@@ -4079,13 +4116,20 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 void CommandLine::parseArguments(int argc, char** argv, int start)
 {
+    WIN98_TRACE("CommandLine::parseArguments: enter");
+    WIN98_TRACE("CommandLine::parseArguments: AllowUnfinalizedAccessScope begin");
     Options::AllowUnfinalizedAccessScope scope;
+    WIN98_TRACE("CommandLine::parseArguments: AllowUnfinalizedAccessScope end");
+    WIN98_TRACE("CommandLine::parseArguments: Options::initialize begin");
     Options::initialize([] {
+        WIN98_TRACE("CommandLine::parseArguments: Options::initialize callback begin");
         Options::useSharedArrayBuffer() = true;
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(APPLETV) && !PLATFORM(WATCHOS)
         Options::crashIfCantAllocateJITMemory() = true;
 #endif
+        WIN98_TRACE("CommandLine::parseArguments: Options::initialize callback end");
     });
+    WIN98_TRACE("CommandLine::parseArguments: Options::initialize end");
 
     if (Options::dumpOptions()) {
         printf("Command line:");
@@ -4105,6 +4149,7 @@ void CommandLine::parseArguments(int argc, char** argv, int start)
     bool optionsDumpRequested = false;
 
     bool hasBadJSCOptions = false;
+    WIN98_TRACE("CommandLine::parseArguments: option loop begin");
     for (; i < argc; ++i) {
         const char* arg = argv[i];
         if (!strcmp(arg, "-f")) {
@@ -4342,21 +4387,35 @@ void CommandLine::parseArguments(int argc, char** argv, int start)
         // This arg is not recognized by the VM nor by jsc. Pass it on to the
         // script.
         Script::ScriptType scriptType = isMJSFile(argv[i]) ? Script::ScriptType::Module : Script::ScriptType::Script;
-        m_scripts.append(Script(Script::StrictMode::Sloppy, Script::CodeSource::File, scriptType, argv[i]));
+        WIN98_TRACE("CommandLine::parseArguments: append script begin");
+        WIN98_TRACE("CommandLine::parseArguments: construct script begin");
+        Script script(Script::StrictMode::Sloppy, Script::CodeSource::File, scriptType, argv[i]);
+        WIN98_TRACE("CommandLine::parseArguments: construct script end");
+        WIN98_TRACE("CommandLine::parseArguments: vector append begin");
+        m_scripts.append(std::move(script));
+        WIN98_TRACE("CommandLine::parseArguments: vector append end");
+        WIN98_TRACE("CommandLine::parseArguments: append script end");
     }
+    WIN98_TRACE("CommandLine::parseArguments: option loop end");
 
     if (hasBadJSCOptions && JSC::Options::validateOptions())
         CRASH();
 
+    WIN98_TRACE("CommandLine::parseArguments: notify options begin");
     JSC::Options::notifyOptionsChanged();
+    WIN98_TRACE("CommandLine::parseArguments: notify options end");
 
     if (m_scripts.isEmpty())
         m_interactive = true;
 
+    WIN98_TRACE("CommandLine::parseArguments: arguments append begin");
     for (; i < argc; ++i)
         m_arguments.append(String::fromLatin1(argv[i]));
+    WIN98_TRACE("CommandLine::parseArguments: arguments append end");
 
+    WIN98_TRACE("CommandLine::parseArguments: assert coherent begin");
     JSC::Options::assertOptionsAreCoherent();
+    WIN98_TRACE("CommandLine::parseArguments: assert coherent end");
     if (optionsDumpRequested) {
         JSC::Options::executeDumpOptions();
         jscExit(EXIT_SUCCESS);
@@ -4374,9 +4433,19 @@ CommandLine::CommandLine(CommandLineForWorkersTag)
 template<typename Func>
 int runJSC(const CommandLine& options, bool isWorker, const Func& func)
 {
+    WIN98_TRACE("runJSC: enter");
+    WIN98_TRACE("runJSC: worker construct begin");
     Worker worker(Workers::singleton(), !isWorker);
-    
+    WIN98_TRACE("runJSC: worker construct end");
+
+    WIN98_TRACE("runJSC: VM::create begin");
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    RunLoop* vmRunLoop = isWorker ? nullptr : &RunLoop::mainSingleton();
+    VM& vm = VM::create(HeapType::Large, vmRunLoop).leakRef();
+#else
     VM& vm = VM::create(HeapType::Large).leakRef();
+#endif
+    WIN98_TRACE("runJSC: VM::create end");
     if (!isWorker && options.m_canBlockIsFalse)
         vm.m_typedArrayController = adoptRef(new JSC::SimpleTypedArrayController(false));
 
@@ -4399,10 +4468,14 @@ int runJSC(const CommandLine& options, bool isWorker, const Func& func)
         success = true;
         GlobalObject* globalObject = nullptr;
         {
+            WIN98_TRACE("runJSC: JSLockHolder begin");
             JSLockHolder locker(vm);
+            WIN98_TRACE("runJSC: JSLockHolder acquired");
 
             startTimeoutThreadIfNeeded(vm);
+            WIN98_TRACE("runJSC: GlobalObject::create begin");
             globalObject = GlobalObject::create(vm, GlobalObject::createStructure(vm, jsNull()), options.m_arguments);
+            WIN98_TRACE("runJSC: GlobalObject::create end");
             globalObject->setInspectable(options.m_inspectable);
 
 #if ENABLE(WEBASSEMBLY)
@@ -4410,17 +4483,25 @@ int runJSC(const CommandLine& options, bool isWorker, const Func& func)
                 Wasm::DebugServer::singleton().start();
 #endif
 
+            WIN98_TRACE("runJSC: func begin");
             func(vm, globalObject, success);
+            WIN98_TRACE("runJSC: func end");
+            WIN98_TRACE("runJSC: drainMicrotasks begin");
             vm.drainMicrotasks();
+            WIN98_TRACE("runJSC: drainMicrotasks end");
         }
         if (vm.hasPendingTerminationException()) {
             vm.setExecutionForbidden();
             if (!options.m_treatWatchdogExceptionAsSuccess)
                 success = false;
         } else {
+            WIN98_TRACE("runJSC: deferredWorkTimer begin");
             vm.deferredWorkTimer->runRunLoop();
+            WIN98_TRACE("runJSC: deferredWorkTimer end");
             {
+                WIN98_TRACE("runJSC: post-run JSLockHolder begin");
                 JSLockHolder locker(vm);
+                WIN98_TRACE("runJSC: post-run JSLockHolder acquired");
 
                 if (!options.m_reprl && options.m_interactive && success)
                     runInteractive(globalObject);
@@ -4531,15 +4612,21 @@ extern const JITOperationAnnotation endOfJITOperationsInShell __asm__("section$e
 
 int jscmain(int argc, char** argv)
 {
+    WIN98_TRACE("jscmain: enter");
     // Need to override and enable restricted options before we start parsing options below.
     JSC::Config::enableRestrictedOptions();
     JSC::Options::machExceptionHandlerSandboxPolicy = JSC::Options::SandboxPolicy::Allow;
+    WIN98_TRACE("jscmain: restricted options enabled");
 
+    WIN98_TRACE("jscmain: initializeMainThread begin");
     WTF::initializeMainThread();
+    WIN98_TRACE("jscmain: initializeMainThread end");
 
     // Note that the options parsing can affect VM creation, and thus
     // comes first.
+    WIN98_TRACE("jscmain: command line construct begin");
     mainCommandLine.construct(argc, argv);
+    WIN98_TRACE("jscmain: command line construct end");
 
 #if OS(WINDOWS)
     // Needed for complex.yaml tests.
@@ -4549,12 +4636,16 @@ int jscmain(int argc, char** argv)
 
     {
         Options::AllowUnfinalizedAccessScope scope;
+        WIN98_TRACE("jscmain: process config begin");
         processConfigFile(Options::configFile(), "jsc");
         if (mainCommandLine->m_dump)
             Options::dumpGeneratedBytecodes() = true;
+        WIN98_TRACE("jscmain: process config end");
     }
 
+    WIN98_TRACE("jscmain: JSC::initialize begin");
     JSC::initialize();
+    WIN98_TRACE("jscmain: JSC::initialize end");
 #if ENABLE(JIT_OPERATION_VALIDATION)
     JSC::JITOperationList::populatePointersInEmbedder(&startOfJITOperationsInShell, &endOfJITOperationsInShell);
 #endif
@@ -4574,6 +4665,7 @@ int jscmain(int argc, char** argv)
 
     if (Options::useSuperSampler())
         enableSuperSampler();
+    WIN98_TRACE("jscmain: before runJSC");
 
     bool gigacageDisableRequested = false;
 #if GIGACAGE_ENABLED && !OS(WINDOWS)
@@ -4631,8 +4723,11 @@ int jscmain(int argc, char** argv)
 #if PLATFORM(COCOA)
             vm.setOnEachMicrotaskTick(WTF::move(onEachMicrotaskTick));
 #endif
+            WIN98_TRACE("jscmain: runWithOptions callback begin");
             runWithOptions(globalObject, mainCommandLine.get(), success);
+            WIN98_TRACE("jscmain: runWithOptions callback end");
         });
+    WIN98_TRACE("jscmain: after runJSC");
 
     printSuperSamplerState();
 

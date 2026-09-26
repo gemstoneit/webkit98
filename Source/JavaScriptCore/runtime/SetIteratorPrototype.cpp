@@ -26,10 +26,16 @@
 #include "config.h"
 #include "SetIteratorPrototype.h"
 
+#include "IteratorOperations.h"
 #include "JSCBuiltins.h"
 #include "JSCInlines.h"
+#include "JSSetIterator.h"
 
 namespace JSC {
+
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+static JSC_DECLARE_HOST_FUNCTION(setIteratorPrototypeFuncNext);
+#endif
 
 const ClassInfo SetIteratorPrototype::s_info = { "Set Iterator"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(SetIteratorPrototype) };
 
@@ -38,8 +44,32 @@ void SetIteratorPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
     Base::finishCreation(vm);
     ASSERT(inherits(info()));
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->next, setIteratorPrototypeFuncNext, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, ImplementationVisibility::Public);
+#else
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->next, setIteratorPrototypeNextCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
+#endif
     JSC_TO_STRING_TAG_WITHOUT_TRANSITION();
 }
+
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+JSC_DEFINE_HOST_FUNCTION(setIteratorPrototypeFuncNext, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    WIN98_TRACE("setIteratorPrototypeFuncNext: enter");
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    auto* iterator = jsDynamicCast<JSSetIterator*>(callFrame->thisValue());
+    if (!iterator) [[unlikely]]
+        return throwVMTypeError(globalObject, scope, "%SetIteratorPrototype%.next requires that |this| be a Set Iterator instance"_s);
+
+    WIN98_TRACE("setIteratorPrototypeFuncNext: before iterator next");
+    JSValue value = jsUndefined();
+    bool done = !iterator->next(globalObject, value);
+    WIN98_TRACE("setIteratorPrototypeFuncNext: after iterator next");
+
+    RELEASE_AND_RETURN(scope, JSValue::encode(createIteratorResultObject(globalObject, value, done)));
+}
+#endif
 
 }

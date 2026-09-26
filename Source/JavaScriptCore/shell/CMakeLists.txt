@@ -17,11 +17,15 @@ if (WTF_OS_MACOS)
 endif ()
 
 if (WIN32)
-    list(APPEND jsc_LIBRARIES Winmm)
+    list(APPEND jsc_LIBRARIES winmm)
 endif ()
 
 if (ENABLE_FUZZILLI)
   list(APPEND jsc_SOURCES ../fuzzilli/Fuzzilli.cpp)
+endif ()
+
+if (WIN32 AND WEBKIT_WINDOWS_LEGACY_TARGET)
+    list(APPEND jsc_SOURCES Win98CompatibilityShims.cpp)
 endif ()
 
 WEBKIT_EXECUTABLE_DECLARE(jsc)
@@ -122,6 +126,22 @@ endif ()
 WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
 
 WEBKIT_EXECUTABLE(jsc)
+
+if (WIN32 AND ICU_DATA_LIBRARY_RELEASE)
+    target_link_libraries(jsc PRIVATE
+        -Wl,--whole-archive
+        "${ICU_DATA_LIBRARY_RELEASE}"
+        -Wl,--no-whole-archive
+    )
+endif ()
+
+if (WIN32 AND WEBKIT_WINDOWS_LEGACY_TARGET)
+    target_link_libraries(jsc PRIVATE
+        -Wl,-Bstatic
+        winpthread
+        -Wl,-Bdynamic
+    )
+endif ()
 
 if (SHOULD_INSTALL_JS_SHELL)
     install(TARGETS jsc DESTINATION "${LIBEXEC_INSTALL_DIR}")

@@ -41,6 +41,7 @@ const ClassInfo MapPrototype::s_info = { "Map"_s, &Base::s_info, nullptr, nullpt
 
 static JSC_DECLARE_HOST_FUNCTION(mapProtoFuncClear);
 static JSC_DECLARE_HOST_FUNCTION(mapProtoFuncDelete);
+static JSC_DECLARE_HOST_FUNCTION(mapProtoFuncForEach);
 static JSC_DECLARE_HOST_FUNCTION(mapProtoFuncGet);
 static JSC_DECLARE_HOST_FUNCTION(mapProtoFuncHas);
 static JSC_DECLARE_HOST_FUNCTION(mapProtoFuncSet);
@@ -69,7 +70,7 @@ void MapPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
     putDirectWithoutTransition(vm, vm.propertyNames->builtinNames().entriesPublicName(), entries, static_cast<unsigned>(PropertyAttribute::DontEnum));
     putDirectWithoutTransition(vm, vm.propertyNames->builtinNames().entriesPrivateName(), entries, static_cast<unsigned>(PropertyAttribute::DontEnum));
 
-    JSFunction* forEachFunc = JSFunction::create(vm, globalObject, mapPrototypeForEachCodeGenerator(vm), globalObject);
+    JSFunction* forEachFunc = JSFunction::create(vm, globalObject, 1, vm.propertyNames->forEach.string(), mapProtoFuncForEach, ImplementationVisibility::Public);
     putDirectWithoutTransition(vm, vm.propertyNames->forEach, forEachFunc, static_cast<unsigned>(PropertyAttribute::DontEnum));
     putDirectWithoutTransition(vm, vm.propertyNames->builtinNames().forEachPrivateName(), forEachFunc, static_cast<unsigned>(PropertyAttribute::DontEnum));
 
@@ -183,6 +184,53 @@ JSC_DEFINE_HOST_FUNCTION(mapProtoFuncSet, (JSGlobalObject* globalObject, CallFra
     map->set(globalObject, callFrame->argument(0), callFrame->argument(1));
     RETURN_IF_EXCEPTION(scope, JSValue::encode(jsUndefined()));
     return JSValue::encode(thisValue);
+}
+
+JSC_DEFINE_HOST_FUNCTION(mapProtoFuncForEach, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSValue thisValue = callFrame->thisValue();
+    JSMap* map = getMap(globalObject, thisValue);
+    RETURN_IF_EXCEPTION(scope, JSValue::encode(jsUndefined()));
+
+    JSValue callback = callFrame->argument(0);
+    auto callData = JSC::getCallDataInline(callback);
+    if (callData.type == CallData::Type::None)
+        return throwVMTypeError(globalObject, scope, "Map.prototype.forEach callback must be a function"_s);
+
+    JSCell* storageCell = map->storageOrSentinel(vm);
+    if (storageCell == vm.orderedHashTableSentinel())
+        return JSValue::encode(jsUndefined());
+
+    JSValue thisArg = callFrame->argument(1);
+    auto* storage = jsCast<JSMap::Storage*>(storageCell);
+    JSMap::Helper::Entry entry = 0;
+    MarkedArgumentBuffer arguments;
+
+    while (true) {
+        storageCell = JSMap::Helper::nextAndUpdateIterationEntry(vm, *storage, entry);
+        if (storageCell == vm.orderedHashTableSentinel())
+            break;
+
+        storage = jsCast<JSMap::Storage*>(storageCell);
+        entry = JSMap::Helper::iterationEntry(*storage) + 1;
+
+        arguments.clear();
+        arguments.append(JSMap::Helper::getIterationEntryValue(*storage));
+        arguments.append(JSMap::Helper::getIterationEntryKey(*storage));
+        arguments.append(thisValue);
+        if (arguments.hasOverflowed()) [[unlikely]] {
+            throwOutOfMemoryError(globalObject, scope);
+            return JSValue::encode(jsUndefined());
+        }
+
+        call(globalObject, callback, callData, thisArg, arguments);
+        RETURN_IF_EXCEPTION(scope, JSValue::encode(jsUndefined()));
+    }
+
+    return JSValue::encode(jsUndefined());
 }
 
 JSC_DEFINE_HOST_FUNCTION(mapProtoFuncGetOrInsert, (JSGlobalObject* globalObject, CallFrame* callFrame))

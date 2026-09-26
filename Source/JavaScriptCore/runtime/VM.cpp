@@ -170,6 +170,15 @@
 
 namespace JSC {
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#define WIN98_TRACE_EXPR(message, expression) (WIN98_TRACE(message), (expression))
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#define WIN98_TRACE_EXPR(message, expression) (expression)
+#endif
+
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(VM);
 
 // Note: Platform.h will enforce that ENABLE(ASSEMBLER) is true if either
@@ -244,81 +253,117 @@ inline void VM::checkStaticAsserts()
 static bool vmCreationShouldCrash = false;
 
 VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
-    : topCallFrame(CallFrame::noCaller())
-    , m_identifier(VMIdentifier::generate())
-    , m_apiLock(adoptRef(*new JSLock(this)))
-    , m_runLoop(runLoop ? *runLoop : WTF::RunLoop::currentSingleton())
-    , m_random(Options::seedOfVMRandomForFuzzer() ? Options::seedOfVMRandomForFuzzer() : cryptographicallyRandomNumber<uint32_t>())
-    , m_heapRandom(Options::seedOfVMRandomForFuzzer() ? Options::seedOfVMRandomForFuzzer() : cryptographicallyRandomNumber<uint32_t>())
-    , m_integrityRandom(*this)
-    , heap(*this, heapType)
-    , clientHeap(heap)
-    , vmType(vmType)
-    , deferredWorkTimer(DeferredWorkTimer::create(*this))
-    , m_atomStringTable(vmType == VMType::Default ? Thread::currentSingleton().atomStringTable() : new AtomStringTable)
-    , m_symbolRegistry(makeUniqueRef<SymbolRegistry>())
-    , m_privateSymbolRegistry(makeUniqueRef<SymbolRegistry>(SymbolRegistry::Type::PrivateSymbol))
-    , emptyList(new ArgList)
-    , machineCodeBytesPerBytecodeWordForBaselineJIT(makeUnique<SimpleStats>())
-    , symbolImplToSymbolMap(*this)
-    , atomStringToJSStringMap(*this)
-    , m_regExpCache(makeUnique<RegExpCache>())
-    , m_compactVariableMap(adoptRef(*new CompactTDZEnvironmentMap))
-    , m_codeCache(makeUnique<CodeCache>())
-    , m_intlCache(makeUnique<IntlCache>())
-    , m_builtinExecutables(makeUnique<BuiltinExecutables>(*this))
-    , m_defaultMicrotaskQueue(*this)
-    , m_syncWaiter(adoptRef(*new Waiter(this)))
+    : topCallFrame(WIN98_TRACE_EXPR("VM::VM init: topCallFrame", CallFrame::noCaller()))
+    , m_identifier(WIN98_TRACE_EXPR("VM::VM init: identifier", VMIdentifier::generate()))
+    , m_apiLock(WIN98_TRACE_EXPR("VM::VM init: apiLock", adoptRef(*new JSLock(this))))
+    , m_runLoop(WIN98_TRACE_EXPR("VM::VM init: runLoop", runLoop ? *runLoop : WTF::RunLoop::currentSingleton()))
+    , m_random(WIN98_TRACE_EXPR("VM::VM init: random", Options::seedOfVMRandomForFuzzer() ? Options::seedOfVMRandomForFuzzer() : cryptographicallyRandomNumber<uint32_t>()))
+    , m_heapRandom(WIN98_TRACE_EXPR("VM::VM init: heapRandom", Options::seedOfVMRandomForFuzzer() ? Options::seedOfVMRandomForFuzzer() : cryptographicallyRandomNumber<uint32_t>()))
+    , m_integrityRandom(WIN98_TRACE_EXPR("VM::VM init: integrityRandom", *this))
+    , heap(WIN98_TRACE_EXPR("VM::VM init: heap", *this), heapType)
+    , clientHeap(WIN98_TRACE_EXPR("VM::VM init: clientHeap", heap))
+    , vmType(WIN98_TRACE_EXPR("VM::VM init: vmType", vmType))
+    , deferredWorkTimer(WIN98_TRACE_EXPR("VM::VM init: deferredWorkTimer", DeferredWorkTimer::create(*this)))
+    , m_atomStringTable(WIN98_TRACE_EXPR("VM::VM init: atomStringTable", vmType == VMType::Default ? Thread::currentSingleton().atomStringTable() : new AtomStringTable))
+    , m_symbolRegistry(WIN98_TRACE_EXPR("VM::VM init: symbolRegistry", makeUniqueRef<SymbolRegistry>()))
+    , m_privateSymbolRegistry(WIN98_TRACE_EXPR("VM::VM init: privateSymbolRegistry", makeUniqueRef<SymbolRegistry>(SymbolRegistry::Type::PrivateSymbol)))
+    , emptyList(WIN98_TRACE_EXPR("VM::VM init: emptyList", new ArgList))
+    , machineCodeBytesPerBytecodeWordForBaselineJIT(WIN98_TRACE_EXPR("VM::VM init: simpleStats", makeUnique<SimpleStats>()))
+    , symbolImplToSymbolMap(WIN98_TRACE_EXPR("VM::VM init: symbolImplToSymbolMap", *this))
+    , atomStringToJSStringMap(WIN98_TRACE_EXPR("VM::VM init: atomStringToJSStringMap", *this))
+    , m_regExpCache(WIN98_TRACE_EXPR("VM::VM init: regExpCache", makeUnique<RegExpCache>()))
+    , m_compactVariableMap(WIN98_TRACE_EXPR("VM::VM init: compactVariableMap", adoptRef(*new CompactTDZEnvironmentMap)))
+    , m_codeCache(WIN98_TRACE_EXPR("VM::VM init: codeCache", makeUnique<CodeCache>()))
+    , m_intlCache(WIN98_TRACE_EXPR("VM::VM init: intlCache", makeUnique<IntlCache>()))
+    , m_builtinExecutables(WIN98_TRACE_EXPR("VM::VM init: builtinExecutables", makeUnique<BuiltinExecutables>(*this)))
+    , m_defaultMicrotaskQueue(WIN98_TRACE_EXPR("VM::VM init: defaultMicrotaskQueue", *this))
+    , m_syncWaiter(WIN98_TRACE_EXPR("VM::VM init: syncWaiter", adoptRef(*new Waiter(this))))
 {
+    WIN98_TRACE("VM::VM body: enter");
     if (vmCreationShouldCrash || g_jscConfig.vmCreationDisallowed) [[unlikely]]
         CRASH_WITH_EXTRA_SECURITY_IMPLICATION_AND_INFO(VMCreationDisallowed, "VM creation disallowed"_s, 0x4242424220202020, 0xbadbeef0badbeef, 0x1234123412341234, 0x1337133713371337);
 
     // Set up lazy initializers.
     {
+        WIN98_TRACE("VM::VM body: lazy initializers begin");
+        WIN98_TRACE("VM::VM body: hasOwnPropertyCache init begin");
         m_hasOwnPropertyCache.initLater([](VM&, auto& ref) {
             ref.set(HasOwnPropertyCache::create());
         });
+        WIN98_TRACE("VM::VM body: hasOwnPropertyCache init end");
 
+        WIN98_TRACE("VM::VM body: megamorphicCache init begin");
         m_megamorphicCache.initLater([](VM&, auto& ref) {
             ref.set(makeUniqueRef<MegamorphicCache>());
         });
+        WIN98_TRACE("VM::VM body: megamorphicCache init end");
 
+        WIN98_TRACE("VM::VM body: shadowChicken init begin");
         m_shadowChicken.initLater([](VM&, auto& ref) {
             ref.set(makeUniqueRef<ShadowChicken>());
         });
+        WIN98_TRACE("VM::VM body: shadowChicken init end");
 
+        WIN98_TRACE("VM::VM body: heapProfiler init begin");
         m_heapProfiler.initLater([](VM& vm, auto& ref) {
             ref.set(makeUniqueRef<HeapProfiler>(vm));
         });
+        WIN98_TRACE("VM::VM body: heapProfiler init end");
 
+        WIN98_TRACE("VM::VM body: stringSearcherTables init begin");
         m_stringSearcherTables.initLater([](VM&, auto& ref) {
             ref.set(makeUniqueRef<AdaptiveStringSearcherTables>());
         });
+        WIN98_TRACE("VM::VM body: stringSearcherTables init end");
 
+        WIN98_TRACE("VM::VM body: watchdog init begin");
         m_watchdog.initLater([](VM& vm, auto& ref) {
             ref.set(adoptRef(*new Watchdog(&vm)));
             vm.ensureTerminationException();
             vm.requestEntryScopeService(EntryScopeService::Watchdog);
         });
+        WIN98_TRACE("VM::VM body: watchdog init end");
+        WIN98_TRACE("VM::VM body: lazy initializers end");
     }
 
+    WIN98_TRACE("VM::VM body: updateSoftReservedZoneSize begin");
     updateSoftReservedZoneSize(Options::softReservedZoneSize());
+    WIN98_TRACE("VM::VM body: updateSoftReservedZoneSize end");
+    WIN98_TRACE("VM::VM body: setLastStackTop begin");
     setLastStackTop(Thread::currentSingleton());
+    WIN98_TRACE("VM::VM body: setLastStackTop end");
+    WIN98_TRACE("VM::VM body: stringSplitIndice reserve begin");
     stringSplitIndice.reserveInitialCapacity(256);
+    WIN98_TRACE("VM::VM body: stringSplitIndice reserve end");
 
+    WIN98_TRACE("VM::VM body: registerVM begin");
     JSRunLoopTimer::Manager::singleton().registerVM(*this);
+    WIN98_TRACE("VM::VM body: registerVM end");
 
     // Need to be careful to keep everything consistent here
+    WIN98_TRACE("VM::VM body: JSLockHolder begin");
     JSLockHolder lock(this);
+    WIN98_TRACE("VM::VM body: JSLockHolder end");
+    WIN98_TRACE("VM::VM body: setCurrentAtomStringTable begin");
     AtomStringTable* existingEntryAtomStringTable = Thread::currentSingleton().setCurrentAtomStringTable(m_atomStringTable);
+    WIN98_TRACE("VM::VM body: setCurrentAtomStringTable end");
+    WIN98_TRACE("VM::VM body: core structures begin");
     structureStructure.setWithoutWriteBarrier(Structure::createStructure(*this));
     structureRareDataStructure.setWithoutWriteBarrier(StructureRareData::createStructure(*this, nullptr, jsNull()));
     stringStructure.setWithoutWriteBarrier(JSString::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: core structures end");
 
+    WIN98_TRACE("VM::VM body: smallStrings begin");
     smallStrings.initializeCommonStrings(*this);
+    WIN98_TRACE("VM::VM body: smallStrings end");
+    WIN98_TRACE("VM::VM body: numericStrings begin");
     numericStrings.initializeSmallIntCache(*this);
+    WIN98_TRACE("VM::VM body: numericStrings end");
 
+    WIN98_TRACE("VM::VM body: commonIdentifiers begin");
     propertyNames = new CommonIdentifiers(*this);
+    WIN98_TRACE("VM::VM body: commonIdentifiers end");
+    WIN98_TRACE("VM::VM body: standard structures begin");
     propertyNameEnumeratorStructure.setWithoutWriteBarrier(JSPropertyNameEnumerator::createStructure(*this, nullptr, jsNull()));
     getterSetterStructure.setWithoutWriteBarrier(GetterSetter::createStructure(*this, nullptr, jsNull()));
     customGetterSetterStructure.setWithoutWriteBarrier(CustomGetterSetter::createStructure(*this, nullptr, jsNull()));
@@ -336,38 +381,87 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     regExpStructure.setWithoutWriteBarrier(RegExp::createStructure(*this, nullptr, jsNull()));
     symbolStructure.setWithoutWriteBarrier(Symbol::createStructure(*this, nullptr, jsNull()));
     symbolTableStructure.setWithoutWriteBarrier(SymbolTable::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: standard structures end");
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+    WIN98_TRACE("VM::VM body: butterfly structures begin");
     rawImmutableButterflyStructure(CopyOnWriteArrayWithInt32).setWithoutWriteBarrier(JSCellButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithInt32));
     Structure* copyOnWriteArrayWithContiguousStructure = JSCellButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithContiguous);
     rawImmutableButterflyStructure(CopyOnWriteArrayWithDouble).setWithoutWriteBarrier(Options::allowDoubleShape() ? JSCellButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithDouble) : copyOnWriteArrayWithContiguousStructure);
     rawImmutableButterflyStructure(CopyOnWriteArrayWithContiguous).setWithoutWriteBarrier(copyOnWriteArrayWithContiguousStructure);
+    WIN98_TRACE("VM::VM body: butterfly structures end");
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
     // This is only for JSCellButterfly filled with atom strings.
+    WIN98_TRACE("VM::VM body: remaining structures begin");
+    WIN98_TRACE("VM::VM body: cellButterflyOnlyAtomStringsStructure begin");
     cellButterflyOnlyAtomStringsStructure.setWithoutWriteBarrier(JSCellButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithContiguous));
+    WIN98_TRACE("VM::VM body: cellButterflyOnlyAtomStringsStructure end");
 
+    WIN98_TRACE("VM::VM body: sourceCodeStructure begin");
     sourceCodeStructure.setWithoutWriteBarrier(JSSourceCode::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: sourceCodeStructure end");
+    WIN98_TRACE("VM::VM body: scriptFetcherStructure begin");
     scriptFetcherStructure.setWithoutWriteBarrier(JSScriptFetcher::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: scriptFetcherStructure end");
+    WIN98_TRACE("VM::VM body: scriptFetchParametersStructure begin");
     scriptFetchParametersStructure.setWithoutWriteBarrier(JSScriptFetchParameters::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: scriptFetchParametersStructure end");
+    WIN98_TRACE("VM::VM body: structureChainStructure begin");
     structureChainStructure.setWithoutWriteBarrier(StructureChain::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: structureChainStructure end");
+    WIN98_TRACE("VM::VM body: sparseArrayValueMapStructure begin");
     sparseArrayValueMapStructure.setWithoutWriteBarrier(SparseArrayValueMap::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: sparseArrayValueMapStructure end");
+    WIN98_TRACE("VM::VM body: templateObjectDescriptorStructure begin");
     templateObjectDescriptorStructure.setWithoutWriteBarrier(JSTemplateObjectDescriptor::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: templateObjectDescriptorStructure end");
+    WIN98_TRACE("VM::VM body: unlinkedFunctionExecutableStructure begin");
     unlinkedFunctionExecutableStructure.setWithoutWriteBarrier(UnlinkedFunctionExecutable::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: unlinkedFunctionExecutableStructure end");
+    WIN98_TRACE("VM::VM body: unlinkedProgramCodeBlockStructure begin");
     unlinkedProgramCodeBlockStructure.setWithoutWriteBarrier(UnlinkedProgramCodeBlock::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: unlinkedProgramCodeBlockStructure end");
+    WIN98_TRACE("VM::VM body: unlinkedEvalCodeBlockStructure begin");
     unlinkedEvalCodeBlockStructure.setWithoutWriteBarrier(UnlinkedEvalCodeBlock::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: unlinkedEvalCodeBlockStructure end");
+    WIN98_TRACE("VM::VM body: unlinkedFunctionCodeBlockStructure begin");
     unlinkedFunctionCodeBlockStructure.setWithoutWriteBarrier(UnlinkedFunctionCodeBlock::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: unlinkedFunctionCodeBlockStructure end");
+    WIN98_TRACE("VM::VM body: unlinkedModuleProgramCodeBlockStructure begin");
     unlinkedModuleProgramCodeBlockStructure.setWithoutWriteBarrier(UnlinkedModuleProgramCodeBlock::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: unlinkedModuleProgramCodeBlockStructure end");
+    WIN98_TRACE("VM::VM body: propertyTableStructure begin");
     propertyTableStructure.setWithoutWriteBarrier(PropertyTable::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: propertyTableStructure end");
+    WIN98_TRACE("VM::VM body: functionRareDataStructure begin");
     functionRareDataStructure.setWithoutWriteBarrier(FunctionRareData::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: functionRareDataStructure end");
+    WIN98_TRACE("VM::VM body: exceptionStructure begin");
     exceptionStructure.setWithoutWriteBarrier(Exception::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: exceptionStructure end");
+    WIN98_TRACE("VM::VM body: programCodeBlockStructure begin");
     programCodeBlockStructure.setWithoutWriteBarrier(ProgramCodeBlock::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: programCodeBlockStructure end");
+    WIN98_TRACE("VM::VM body: moduleProgramCodeBlockStructure begin");
     moduleProgramCodeBlockStructure.setWithoutWriteBarrier(ModuleProgramCodeBlock::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: moduleProgramCodeBlockStructure end");
+    WIN98_TRACE("VM::VM body: evalCodeBlockStructure begin");
     evalCodeBlockStructure.setWithoutWriteBarrier(EvalCodeBlock::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: evalCodeBlockStructure end");
+    WIN98_TRACE("VM::VM body: functionCodeBlockStructure begin");
     functionCodeBlockStructure.setWithoutWriteBarrier(FunctionCodeBlock::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: functionCodeBlockStructure end");
+    WIN98_TRACE("VM::VM body: bigIntStructure begin");
     bigIntStructure.setWithoutWriteBarrier(JSBigInt::createStructure(*this, nullptr, jsNull()));
+    WIN98_TRACE("VM::VM body: bigIntStructure end");
+    WIN98_TRACE("VM::VM body: orderedHashTableDeletedValue begin");
     m_orderedHashTableDeletedValue.setWithoutWriteBarrier(OrderedHashMap::createDeletedValue(*this));
+    WIN98_TRACE("VM::VM body: orderedHashTableDeletedValue end");
+    WIN98_TRACE("VM::VM body: orderedHashTableSentinel begin");
     m_orderedHashTableSentinel.setWithoutWriteBarrier(OrderedHashMap::createSentinel(*this));
+    WIN98_TRACE("VM::VM body: orderedHashTableSentinel end");
+    WIN98_TRACE("VM::VM body: remaining structures end");
 
     // Eagerly initialize constant cells since the concurrent compiler can access them.
     if (Options::useJIT()) {
@@ -619,7 +713,14 @@ Ref<VM> VM::createContextGroup(HeapType heapType)
 
 Ref<VM> VM::create(HeapType heapType, WTF::RunLoop* runLoop)
 {
-    return adoptRef(*new VM(VMType::Default, heapType, runLoop));
+    WIN98_TRACE("VM::create: enter");
+    WIN98_TRACE("VM::create: new begin");
+    VM* vm = new VM(VMType::Default, heapType, runLoop);
+    WIN98_TRACE("VM::create: new end");
+    WIN98_TRACE("VM::create: adopt begin");
+    auto vmRef = adoptRef(*vm);
+    WIN98_TRACE("VM::create: adopt end");
+    return vmRef;
 }
 
 RefPtr<VM> VM::tryCreate(HeapType heapType, WTF::RunLoop* runLoop)
@@ -1426,6 +1527,10 @@ void VM::drainMicrotasks()
 
 void sanitizeStackForVM(VM& vm)
 {
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    UNUSED_PARAM(vm);
+    return;
+#else
     auto& thread = Thread::currentSingleton();
     auto& stack = thread.stack();
     if (!vm.currentThreadIsHoldingAPILock())
@@ -1440,6 +1545,7 @@ void sanitizeStackForVM(VM& vm)
     sanitizeStackForVMImpl(&vm);
 #endif
     RELEASE_ASSERT(stack.contains(vm.lastStackTop()), 0xaa20, vm.lastStackTop(), stack.origin(), stack.end());
+#endif
 }
 
 size_t VM::committedStackByteCount()

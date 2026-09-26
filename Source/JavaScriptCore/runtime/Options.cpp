@@ -71,6 +71,13 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace JSC {
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+
 bool useOSLogOptionHasChanged = false;
 Options::SandboxPolicy Options::machExceptionHandlerSandboxPolicy = Options::SandboxPolicy::Unknown;
 
@@ -83,8 +90,35 @@ namespace OptionsHelper {
 struct Metadata {
     // This struct does not need to be TZONE_ALLOCATED because it is only used for transient memory
     // during Options initialization, and will not be re-allocated thereafter. See comment above.
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    void* operator new(size_t size)
+    {
+        WIN98_TRACE("OptionsHelper::Metadata: operator new begin");
+        void* result = ::malloc(size);
+        if (!result)
+            CRASH();
+        WIN98_TRACE("OptionsHelper::Metadata: operator new end");
+        return result;
+    }
+
+    void operator delete(void* p)
+    {
+        WIN98_TRACE("OptionsHelper::Metadata: operator delete");
+        ::free(p);
+    }
+
+    void* operator new(size_t, void* p) { return p; }
+    void operator delete(void*, void*) { }
+    using WTFIsFastMallocAllocated = int;
+#else
     WTF_DEPRECATED_MAKE_FAST_ALLOCATED(Metadata);
+#endif
 public:
+    Metadata()
+    {
+        WIN98_TRACE("OptionsHelper::Metadata: ctor body");
+    }
+
     OptionsStorage defaults;
 };
 
@@ -144,15 +178,27 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 static void initialize()
 {
+    WIN98_TRACE("OptionsHelper::initialize: enter");
+    WIN98_TRACE("OptionsHelper::initialize: g_optionWasOverridden construct begin");
     g_optionWasOverridden.construct();
+    WIN98_TRACE("OptionsHelper::initialize: g_optionWasOverridden construct end");
 
     // Make a transient copy of the default option values into g_metadata before they get
     // modified. The defaults are only needed to provide more info when dumping options.
     // g_metadata will be released in Options::finalize() (see releaseMetadata()).
+    WIN98_TRACE("OptionsHelper::initialize: g_metadata construct begin");
     g_metadata.construct();
+    WIN98_TRACE("OptionsHelper::initialize: g_metadata construct end");
+    WIN98_TRACE("OptionsHelper::initialize: make metadata begin");
     auto metadata = makeUnique<Metadata>();
+    WIN98_TRACE("OptionsHelper::initialize: make metadata end");
+    WIN98_TRACE("OptionsHelper::initialize: memcpy defaults begin");
     memcpy(&metadata->defaults, &g_jscConfig.options, sizeof(OptionsStorage));
+    WIN98_TRACE("OptionsHelper::initialize: memcpy defaults end");
+    WIN98_TRACE("OptionsHelper::initialize: metadata assign begin");
     g_metadata.get() = WTF::move(metadata);
+    WIN98_TRACE("OptionsHelper::initialize: metadata assign end");
+    WIN98_TRACE("OptionsHelper::initialize: exit");
 }
 
 static void releaseMetadata()
@@ -1017,31 +1063,46 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 void Options::initializeWithOptionsCustomization(const ScopedLambda<void()>& optionsCustomizationCallback)
 {
+    WIN98_TRACE("Options::initializeWithOptionsCustomization: enter");
     static std::once_flag initializeOptionsOnceFlag;
     
+    WIN98_TRACE("Options::initializeWithOptionsCustomization: before call_once");
     std::call_once(
         initializeOptionsOnceFlag,
         [&] {
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: lambda enter");
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: AllowUnfinalizedAccessScope begin");
             AllowUnfinalizedAccessScope scope;
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: AllowUnfinalizedAccessScope end");
 
             // Sanity check that options address computation is working.
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: sanity begin");
             RELEASE_ASSERT(OptionsHelper::addressOfOption(useKernTCSMID) ==  &Options::useKernTCSM());
             RELEASE_ASSERT(OptionsHelper::addressOfOption(gcMaxHeapSizeID) ==  &Options::gcMaxHeapSize());
             RELEASE_ASSERT(OptionsHelper::addressOfOption(forceOSRExitToLLIntID) ==  &Options::forceOSRExitToLLInt());
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: sanity end");
 
 #if ENABLE(JSC_RESTRICTED_OPTIONS_BY_DEFAULT)
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: restricted options begin");
             Config::enableRestrictedOptions();
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: restricted options end");
 #endif
 
             // Initialize each of the options with their default values:
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: defaults begin");
 #define INIT_OPTION(type_, name_, defaultValue_, availability_, description_) { \
                 name_() = defaultValue_; \
             }
             FOR_EACH_JSC_OPTION(INIT_OPTION)
 #undef INIT_OPTION
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: defaults end");
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: helper initialize begin");
             OptionsHelper::initialize();
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: helper initialize end");
 
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: overrideDefaults begin");
             overrideDefaults();
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: overrideDefaults end");
 
             // Allow environment vars to override options if applicable.
             // The env var should be the name of the option prefixed with
@@ -1068,6 +1129,7 @@ void Options::initializeWithOptionsCustomization(const ScopedLambda<void()>& opt
 #endif // PLATFORM(COCOA) || OS(LINUX)
 
 #if !PLATFORM(COCOA)
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: heuristics begin");
 #define OVERRIDE_OPTION_WITH_HEURISTICS(type_, name_, defaultValue_, availability_, description_) \
             overrideOptionWithHeuristic(name_(), name_##ID, "JSC_" #name_, Availability::availability_);
             FOR_EACH_JSC_OPTION(OVERRIDE_OPTION_WITH_HEURISTICS)
@@ -1077,6 +1139,7 @@ void Options::initializeWithOptionsCustomization(const ScopedLambda<void()>& opt
             overrideAliasedOptionWithHeuristic("JSC_" #aliasedName_);
             FOR_EACH_JSC_ALIASED_OPTION(OVERRIDE_ALIASED_OPTION_WITH_HEURISTICS)
 #undef OVERRIDE_ALIASED_OPTION_WITH_HEURISTICS
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: heuristics end");
 
 #endif // !PLATFORM(COCOA)
 
@@ -1090,11 +1153,15 @@ void Options::initializeWithOptionsCustomization(const ScopedLambda<void()>& opt
 #endif
 
             // Client gets the last word on what options they want to override.
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: callback begin");
             optionsCustomizationCallback();
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: callback end");
 
             // No more options changes after this point. notifyOptionsChanged() will
             // do sanity checks and fix up options as needed.
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: notifyOptionsChanged begin");
             notifyOptionsChanged();
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: notifyOptionsChanged end");
 
             // The code below acts on options that have been finalized.
             // Do not change any options here.
@@ -1102,7 +1169,9 @@ void Options::initializeWithOptionsCustomization(const ScopedLambda<void()>& opt
             if (Options::useMachForExceptions())
                 handleSignalsWithMach();
 #endif
+            WIN98_TRACE("Options::initializeWithOptionsCustomization: lambda exit");
     });
+    WIN98_TRACE("Options::initializeWithOptionsCustomization: after call_once");
 }
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

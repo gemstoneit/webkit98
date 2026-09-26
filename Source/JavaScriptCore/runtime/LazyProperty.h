@@ -38,7 +38,7 @@ class LazyProperty {
 public:
     struct Initializer {
         Initializer(OwnerType* owner, LazyProperty& property)
-            : vm(Heap::heap(owner)->vm())
+            : vm(ownerVM(owner))
             , owner(owner)
             , property(property)
         {
@@ -49,6 +49,17 @@ public:
         VM& vm;
         OwnerType* owner;
         LazyProperty& property;
+
+    private:
+        static VM& ownerVM(OwnerType* owner)
+        {
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET)
+            if constexpr (requires(OwnerType* typedOwner) { typedOwner->vm(); })
+                return owner->vm();
+            else
+#endif
+                return Heap::heap(owner)->vm();
+        }
     };
 
 private:

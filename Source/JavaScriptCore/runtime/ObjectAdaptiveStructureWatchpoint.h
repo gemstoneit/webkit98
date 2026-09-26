@@ -66,8 +66,10 @@ inline void ObjectAdaptiveStructureWatchpoint::install(VM&)
 
 inline void ObjectAdaptiveStructureWatchpoint::fireInternal(VM& vm, const FireDetail&)
 {
+#if !defined(WEBKIT_WINDOWS_LEGACY_TARGET) || !OS(WINDOWS)
     if (m_owner->isPendingDestruction())
         return;
+#endif
 
     if (m_key.isWatchable(PropertyCondition::EnsureWatchability)) {
         install(vm);

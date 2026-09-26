@@ -45,6 +45,15 @@
 #include <wtf/Assertions.h>
 #include <wtf/StdMap.h>
 
+#ifndef WIN98_TRACE
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+#endif
+
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace JSC {
@@ -72,6 +81,11 @@ static JSC_DECLARE_HOST_FUNCTION(arrayProtoFuncIncludes);
 static JSC_DECLARE_HOST_FUNCTION(arrayProtoFuncCopyWithin);
 static JSC_DECLARE_HOST_FUNCTION(arrayProtoFuncToSpliced);
 static JSC_DECLARE_HOST_FUNCTION(arrayProtoFuncFlat);
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+static JSC_DECLARE_HOST_FUNCTION(arrayProtoFuncFlatMapLegacy);
+static JSC_DECLARE_HOST_FUNCTION(arrayProtoFuncReduceLegacy);
+static JSC_DECLARE_HOST_FUNCTION(arrayProtoFuncAtLegacy);
+#endif
 
 // ------------------------------ ArrayPrototype ----------------------------
 
@@ -119,8 +133,16 @@ void ArrayPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION("lastIndexOf"_s, arrayProtoFuncLastIndexOf, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Public);
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().filterPublicName(), arrayPrototypeFilterCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->flat, arrayProtoFuncFlat, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, ImplementationVisibility::Public);
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().flatMapPublicName(), arrayProtoFuncFlatMapLegacy, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Public);
+#else
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().flatMapPublicName(), arrayPrototypeFlatMapCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
+#endif
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().reducePublicName(), arrayProtoFuncReduceLegacy, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Public);
+#else
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().reducePublicName(), arrayPrototypeReduceCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
+#endif
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().reduceRightPublicName(), arrayPrototypeReduceRightCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().mapPublicName(), arrayPrototypeMapCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
     JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().keysPublicName(), arrayProtoFuncKeys, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, ImplementationVisibility::Public, ArrayKeysIntrinsic);
@@ -131,7 +153,11 @@ void ArrayPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().findLastIndexPublicName(), arrayPrototypeFindLastIndexCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
     JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->includes, arrayProtoFuncIncludes, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Public, ArrayIncludesIntrinsic);
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->copyWithin, arrayProtoFuncCopyWithin, static_cast<unsigned>(PropertyAttribute::DontEnum), 2, ImplementationVisibility::Public);
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().atPublicName(), arrayProtoFuncAtLegacy, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Public);
+#else
     JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().atPublicName(), arrayPrototypeAtCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
+#endif
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->toReversed, arrayProtoFuncToReversed, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, ImplementationVisibility::Public);
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->toSorted, arrayProtoFuncToSorted, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Public);
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->toSpliced, arrayProtoFuncToSpliced, static_cast<unsigned>(PropertyAttribute::DontEnum), 2, ImplementationVisibility::Public);
@@ -171,6 +197,72 @@ void ArrayPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
     }
     putDirectWithoutTransition(vm, vm.propertyNames->unscopablesSymbol, unscopables, PropertyAttribute::DontEnum | PropertyAttribute::ReadOnly);
 }
+
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+JSC_DEFINE_HOST_FUNCTION(arrayProtoFuncReduceLegacy, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    WIN98_TRACE("arrayProtoFuncReduceLegacy: enter");
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSValue thisValue = callFrame->thisValue().toThis(globalObject, ECMAMode::strict());
+    if (thisValue.isUndefinedOrNull())
+        return throwVMTypeError(globalObject, scope, "Array.prototype.reduce requires that |this| not be null or undefined"_s);
+
+    JSObject* thisObject = thisValue.toObject(globalObject);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    uint64_t length = toLength(globalObject, thisObject);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    JSValue callback = callFrame->argument(0);
+    auto callData = JSC::getCallData(callback);
+    if (callData.type == CallData::Type::None)
+        return throwVMTypeError(globalObject, scope, "Array.prototype.reduce callback must be a function"_s);
+
+    uint64_t index = 0;
+    JSValue accumulator;
+    if (callFrame->argumentCount() > 1)
+        accumulator = callFrame->uncheckedArgument(1);
+    else {
+        for (; index < length; ++index) {
+            accumulator = getProperty(globalObject, thisObject, index);
+            RETURN_IF_EXCEPTION(scope, { });
+            if (accumulator) {
+                ++index;
+                break;
+            }
+        }
+
+        if (!accumulator)
+            return throwVMTypeError(globalObject, scope, "Reduce of empty array with no initial value"_s);
+    }
+
+    MarkedArgumentBuffer arguments;
+    for (; index < length; ++index) {
+        JSValue value = getProperty(globalObject, thisObject, index);
+        RETURN_IF_EXCEPTION(scope, { });
+        if (!value)
+            continue;
+
+        arguments.clear();
+        arguments.append(accumulator);
+        arguments.append(value);
+        arguments.append(jsNumber(index));
+        arguments.append(thisObject);
+        if (arguments.hasOverflowed()) [[unlikely]] {
+            throwOutOfMemoryError(globalObject, scope);
+            return { };
+        }
+
+        accumulator = call(globalObject, callback, callData, jsUndefined(), arguments);
+        RETURN_IF_EXCEPTION(scope, { });
+    }
+
+    WIN98_TRACE("arrayProtoFuncReduceLegacy: return");
+    return JSValue::encode(accumulator);
+}
+#endif
 
 // ------------------------------ Array Functions ----------------------------
 
@@ -228,6 +320,38 @@ static inline int64_t argumentUnclampedIndexFromStartOrEnd(JSGlobalObject* globa
         return std::signbit(indexDouble) ? std::numeric_limits<int64_t>::min() : std::numeric_limits<int64_t>::max();
     return static_cast<int64_t>(indexDouble);
 }
+
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+JSC_DEFINE_HOST_FUNCTION(arrayProtoFuncAtLegacy, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    WIN98_TRACE("arrayProtoFuncAtLegacy: enter");
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSValue thisValue = callFrame->thisValue().toThis(globalObject, ECMAMode::strict());
+    RETURN_IF_EXCEPTION(scope, { });
+    if (thisValue.isUndefinedOrNull()) [[unlikely]]
+        return throwVMTypeError(globalObject, scope, "Array.prototype.at requires that |this| not be null or undefined"_s);
+
+    JSObject* thisObject = thisValue.toObject(globalObject);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    uint64_t length = toLength(globalObject, thisObject);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    int64_t index = argumentUnclampedIndexFromStartOrEnd(globalObject, callFrame->argument(0), length);
+    RETURN_IF_EXCEPTION(scope, { });
+    if (index < 0 || static_cast<uint64_t>(index) >= length)
+        return JSValue::encode(jsUndefined());
+
+    JSValue result = getProperty(globalObject, thisObject, static_cast<uint64_t>(index));
+    RETURN_IF_EXCEPTION(scope, { });
+    if (!result)
+        result = jsUndefined();
+    WIN98_TRACE("arrayProtoFuncAtLegacy: return");
+    return JSValue::encode(result);
+}
+#endif
 
 ALWAYS_INLINE JSString* fastArrayJoin(JSGlobalObject* globalObject, JSObject* thisObject, StringView separator, unsigned length)
 {
@@ -2154,6 +2278,92 @@ static uint64_t flatIntoArray(JSGlobalObject* globalObject, JSObject* target, JS
 
     return targetIndex;
 }
+
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+static uint64_t flatIntoArrayWithCallbackLegacy(JSGlobalObject* globalObject, JSObject* target, JSObject* source, uint64_t sourceLength, uint64_t targetIndex, JSValue callback, const CallData& callData, JSValue thisArg)
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    if (!vm.isSafeToRecurseSoft()) [[unlikely]] {
+        throwStackOverflowError(globalObject, scope);
+        return std::numeric_limits<uint64_t>::max();
+    }
+
+    MarkedArgumentBuffer arguments;
+    for (uint64_t sourceIndex = 0; sourceIndex < sourceLength; ++sourceIndex) {
+        JSValue element = source->getIfPropertyExists(globalObject, sourceIndex);
+        RETURN_IF_EXCEPTION(scope, { });
+        if (!element)
+            continue;
+
+        arguments.clear();
+        arguments.append(element);
+        arguments.append(jsNumber(sourceIndex));
+        arguments.append(source);
+        if (arguments.hasOverflowed()) [[unlikely]] {
+            throwOutOfMemoryError(globalObject, scope);
+            return std::numeric_limits<uint64_t>::max();
+        }
+
+        JSValue mappedValue = call(globalObject, callback, callData, thisArg, arguments);
+        RETURN_IF_EXCEPTION(scope, { });
+
+        bool mappedValueIsArray = isArray(globalObject, mappedValue);
+        RETURN_IF_EXCEPTION(scope, { });
+        if (mappedValueIsArray) {
+            JSObject* mappedObject = asObject(mappedValue);
+            uint64_t mappedLength = toLength(globalObject, mappedObject);
+            RETURN_IF_EXCEPTION(scope, { });
+            targetIndex = flatIntoArray(globalObject, target, mappedObject, mappedLength, targetIndex, 0);
+            RETURN_IF_EXCEPTION(scope, { });
+            continue;
+        }
+
+        if (targetIndex >= maxSafeIntegerAsUInt64()) [[unlikely]] {
+            throwTypeError(globalObject, scope, "flatten array exceeds 2**52 - 1");
+            return std::numeric_limits<uint64_t>::max();
+        }
+        target->putDirectIndex(globalObject, targetIndex, mappedValue, 0, PutDirectIndexShouldThrow);
+        RETURN_IF_EXCEPTION(scope, { });
+        targetIndex++;
+    }
+
+    return targetIndex;
+}
+
+JSC_DEFINE_HOST_FUNCTION(arrayProtoFuncFlatMapLegacy, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    WIN98_TRACE("arrayProtoFuncFlatMapLegacy: enter");
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSValue thisValue = callFrame->thisValue().toThis(globalObject, ECMAMode::strict());
+    RETURN_IF_EXCEPTION(scope, { });
+    if (thisValue.isUndefinedOrNull()) [[unlikely]]
+        return throwVMTypeError(globalObject, scope, "Array.prototype.flatMap requires that |this| not be null or undefined"_s);
+
+    JSObject* thisObject = thisValue.toObject(globalObject);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    uint64_t length = toLength(globalObject, thisObject);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    JSValue callback = callFrame->argument(0);
+    auto callData = JSC::getCallData(callback);
+    if (callData.type == CallData::Type::None)
+        return throwVMTypeError(globalObject, scope, "Array.prototype.flatMap callback must be a function"_s);
+
+    JSArray* result = constructEmptyArray(globalObject, nullptr);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    JSValue thisArg = callFrame->argument(1);
+    scope.release();
+    flatIntoArrayWithCallbackLegacy(globalObject, result, thisObject, length, 0, callback, callData, thisArg);
+    WIN98_TRACE("arrayProtoFuncFlatMapLegacy: return");
+    return JSValue::encode(result);
+}
+#endif
 
 JSC_DEFINE_HOST_FUNCTION(arrayProtoFuncFlat, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {

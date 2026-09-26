@@ -70,28 +70,42 @@ DEFINE_VISIT_CHILDREN(JSSetIterator);
 
 JSC_DEFINE_HOST_FUNCTION(setIteratorPrivateFuncSetIteratorNext, (JSGlobalObject * globalObject, CallFrame* callFrame))
 {
+    WIN98_TRACE("setIteratorPrivateFuncSetIteratorNext: enter");
     ASSERT(callFrame->argument(0).isCell());
 
     VM& vm = globalObject->vm();
+    WIN98_TRACE("setIteratorPrivateFuncSetIteratorNext: got vm");
     JSCell* cell = callFrame->uncheckedArgument(0).asCell();
+    WIN98_TRACE("setIteratorPrivateFuncSetIteratorNext: got cell");
     if (cell == vm.orderedHashTableSentinel())
         return JSValue::encode(cell);
 
+    WIN98_TRACE("setIteratorPrivateFuncSetIteratorNext: before jsCast");
     JSSetIterator* iterator = jsCast<JSSetIterator*>(cell);
-    return JSValue::encode(iterator->next(vm));
+    WIN98_TRACE("setIteratorPrivateFuncSetIteratorNext: before next");
+    JSValue done = iterator->next(vm);
+    WIN98_TRACE("setIteratorPrivateFuncSetIteratorNext: after next");
+    return JSValue::encode(done);
 }
 
 JSC_DEFINE_HOST_FUNCTION(setIteratorPrivateFuncSetIteratorKey, (JSGlobalObject * globalObject, CallFrame* callFrame))
 {
+    WIN98_TRACE("setIteratorPrivateFuncSetIteratorKey: enter");
     ASSERT(callFrame->argument(0).isCell());
 
     VM& vm = globalObject->vm();
+    WIN98_TRACE("setIteratorPrivateFuncSetIteratorKey: got vm");
     JSCell* cell = callFrame->uncheckedArgument(0).asCell();
+    WIN98_TRACE("setIteratorPrivateFuncSetIteratorKey: got cell");
     if (cell == vm.orderedHashTableSentinel())
         return JSValue::encode(cell);
 
+    WIN98_TRACE("setIteratorPrivateFuncSetIteratorKey: before jsCast");
     JSSetIterator* iterator = jsCast<JSSetIterator*>(cell);
-    return JSValue::encode(iterator->peekKey(vm));
+    WIN98_TRACE("setIteratorPrivateFuncSetIteratorKey: before peekKey");
+    JSValue key = iterator->peekKey(vm);
+    WIN98_TRACE("setIteratorPrivateFuncSetIteratorKey: after peekKey");
+    return JSValue::encode(key);
 }
 
 }

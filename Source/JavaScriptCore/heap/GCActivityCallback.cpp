@@ -34,7 +34,11 @@
 
 namespace JSC {
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+bool GCActivityCallback::s_shouldCreateGCTimer = false;
+#else
 bool GCActivityCallback::s_shouldCreateGCTimer = true;
+#endif
 
 const double timerSlop = 2.0; // Fudge factor to avoid performance cost of resetting timer.
 
@@ -100,4 +104,3 @@ void GCActivityCallback::cancel()
 }
 
 }
-

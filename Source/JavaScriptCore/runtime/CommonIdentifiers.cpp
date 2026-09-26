@@ -29,6 +29,28 @@ namespace JSC {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(CommonIdentifiers);
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+extern "C" void win98Trace(const char*);
+#define WIN98_TRACE(message) win98Trace(message)
+#else
+#define WIN98_TRACE(message) do { } while (0)
+#endif
+
+static Identifier tracedInitialIdentifierFromString(VM& vm, ASCIILiteral literal)
+{
+    WIN98_TRACE("CommonIdentifiers: identifiers begin");
+    auto result = Identifier::fromString(vm, literal);
+    return result;
+}
+
+static std::unique_ptr<BuiltinNames> tracedMakeBuiltinNames(VM& vm, CommonIdentifiers* commonIdentifiers)
+{
+    WIN98_TRACE("CommonIdentifiers: make BuiltinNames begin");
+    auto result = makeUnique<BuiltinNames>(vm, commonIdentifiers);
+    WIN98_TRACE("CommonIdentifiers: make BuiltinNames end");
+    return result;
+}
+
 #define INITIALIZE_PROPERTY_NAME(name) , name(Identifier::fromString(vm, #name ""_s))
 #define INITIALIZE_KEYWORD(name) , name##Keyword(Identifier::fromString(vm, #name ""_s))
 #define INITIALIZE_PRIVATE_NAME(name) , name##PrivateName(m_builtinNames->name##PrivateName())
@@ -38,11 +60,11 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(CommonIdentifiers);
 CommonIdentifiers::CommonIdentifiers(VM& vm)
     : nullIdentifier()
     , emptyIdentifier(Identifier::EmptyIdentifierFlag::EmptyIdentifier)
-    , underscoreProto(Identifier::fromString(vm, "__proto__"_s))
+    , underscoreProto(tracedInitialIdentifierFromString(vm, "__proto__"_s))
     , useStrictIdentifier(Identifier::fromString(vm, "use strict"_s))
     , timesIdentifier(Identifier::fromString(vm, "*"_s))
     , negativeOneIdentifier(Identifier::fromString(vm, "-1"_s))
-    , m_builtinNames(makeUnique<BuiltinNames>(vm, this))
+    , m_builtinNames(tracedMakeBuiltinNames(vm, this))
     JSC_PARSER_PRIVATE_NAMES(INITIALIZE_PRIVATE_NAME)
     JSC_COMMON_IDENTIFIERS_EACH_KEYWORD(INITIALIZE_KEYWORD)
     JSC_COMMON_IDENTIFIERS_EACH_PROPERTY_NAME(INITIALIZE_PROPERTY_NAME)
@@ -50,6 +72,7 @@ CommonIdentifiers::CommonIdentifiers(VM& vm)
     JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_EXPLICIT_RESOURCE_MANAGEMENT_WELL_KNOWN_SYMBOL(INITIALIZE_SYMBOL)
     JSC_COMMON_IDENTIFIERS_EACH_PRIVATE_FIELD(INITIALIZE_PRIVATE_FIELD_NAME)
 {
+    WIN98_TRACE("CommonIdentifiers: constructor end");
 }
 
 CommonIdentifiers::~CommonIdentifiers() = default;

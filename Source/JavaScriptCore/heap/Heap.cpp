@@ -345,8 +345,13 @@ Heap::Heap(VM& vm, HeapType heapType)
     , m_jitStubRoutines(makeUnique<JITStubRoutineSet>())
     // We seed with 10ms so that GCActivityCallback::didAllocate doesn't continuously
     // schedule the timer if we've never done a collection.
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    , m_fullActivityCallback(nullptr)
+    , m_edenActivityCallback(nullptr)
+#else
     , m_fullActivityCallback(FullGCActivityCallback::tryCreate(*this))
     , m_edenActivityCallback(EdenGCActivityCallback::tryCreate(*this))
+#endif
     , m_sweeper(adoptRef(*new IncrementalSweeper(this)))
     , m_stopIfNecessaryTimer(adoptRef(*new StopIfNecessaryTimer(vm)))
     , m_sharedCollectorMarkStack(makeUnique<MarkStackArray>())
@@ -720,10 +725,12 @@ void Heap::reportAbandonedObjectGraph()
     // been abandoned, the next collection has the potential to 
     // be more profitable. Since allocation is the trigger for collection, 
     // we hasten the next collection by pretending that we've allocated more memory. 
+#if !defined(WEBKIT_WINDOWS_LEGACY_TARGET) || !OS(WINDOWS)
     if (m_fullActivityCallback) {
         m_fullActivityCallback->didAllocate(*this,
             m_sizeAfterLastCollect - m_sizeAfterLastFullCollect + totalBytesAllocatedThisCycle() + m_bytesAbandonedSinceLastFullCollect);
     }
+#endif
     m_bytesAbandonedSinceLastFullCollect += abandonedBytes;
 }
 
@@ -2539,10 +2546,12 @@ void Heap::updateAllocationLimits()
         m_maxHeapSize = std::max(m_maxHeapSize, currentHeapSize + m_maxEdenSize);
         dataLogLnIf(verbose, "Eden: maxHeapSize = ", m_maxHeapSize);
         dataLogLnIf(verbose, "Eden: maxEdenSize = ", m_maxEdenSize);
+#if !defined(WEBKIT_WINDOWS_LEGACY_TARGET) || !OS(WINDOWS)
         if (m_fullActivityCallback) {
             ASSERT(currentHeapSize >= m_sizeAfterLastFullCollect);
             m_fullActivityCallback->didAllocate(*this, currentHeapSize - m_sizeAfterLastFullCollect);
         }
+#endif
     }
 
     m_sizeAfterLastCollect = currentHeapSize;
@@ -2621,8 +2630,10 @@ void Heap::setGarbageCollectionTimerEnabled(bool enable)
 constexpr size_t oversizedAllocationThreshold = 64 * KB;
 void Heap::didAllocate(size_t bytes)
 {
+#if !defined(WEBKIT_WINDOWS_LEGACY_TARGET) || !OS(WINDOWS)
     if (m_edenActivityCallback)
         m_edenActivityCallback->didAllocate(*this, totalBytesAllocatedThisCycle() + m_bytesAbandonedSinceLastFullCollect);
+#endif
     if (bytes >= oversizedAllocationThreshold) {
         m_oversizedBytesAllocatedThisCycle += bytes;
         m_lastOversidedAllocationThisCycle = bytes;

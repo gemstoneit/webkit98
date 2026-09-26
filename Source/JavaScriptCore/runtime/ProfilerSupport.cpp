@@ -44,7 +44,7 @@
 #include <unistd.h>
 #endif
 
-#if OS(WINDOWS)
+#if OS(WINDOWS) && !defined(__MINGW32__)
 #include <io.h>
 
 inline static int open(const char* filename, int oflag, int pmode)
