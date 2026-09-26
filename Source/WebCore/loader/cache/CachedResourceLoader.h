@@ -182,13 +182,13 @@ public:
     static FetchMetadataSite computeFetchMetadataSite(const ResourceRequest&, CachedResource::Type, FetchOptions::Mode, const LocalFrame&, bool isDirectlyUserInitiatedRequest);
     static FetchMetadataSite computeFetchMetadataSiteAfterRedirection(const ResourceRequest&, CachedResource::Type, FetchOptions::Mode, const SecurityOrigin& originalOrigin, FetchMetadataSite originalSite, bool isDirectlyUserInitiatedRequest);
 
-private:
-    explicit CachedResourceLoader(DocumentLoader*);
-
 #if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
     const Timer* win98MiniUnusedPreloadsTimerForDiagnostics() const { return &m_unusedPreloadsTimer; }
     const Timer* win98MiniGarbageCollectDocumentResourcesTimerForDiagnostics() const { return &m_garbageCollectDocumentResourcesTimer; }
 #endif
+
+private:
+    explicit CachedResourceLoader(DocumentLoader*);
 
     enum class ForPreload : bool { No, Yes };
 

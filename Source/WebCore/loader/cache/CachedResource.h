@@ -467,23 +467,14 @@ public:
     CachedResourceCallback(CachedResource&, CachedResourceClient&);
     void cancel();
 
-private:
-    Timer m_timer;
-};
-
-inline bool CachedResource::isMainOrMediaOrIconOrRawResource() const
-{
-    return type() == Type::MainResource
-        || type() == Type::MediaResource
-#if ENABLE(MODEL_ELEMENT)
-        || type() == Type::EnvironmentMapResource
 #if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
     const Timer* win98MiniTimerForDiagnostics() const { return &m_timer; }
 #endif
 
-        || type() == Type::ModelResource
-#endif
-        || type() == Type::Icon
+private:
+    Timer m_timer;
+};
+
 #if defined(WIN98MINI_WINDOW_HOST_SMOKE) && WIN98MINI_WINDOW_HOST_SMOKE
 inline const TimerBase* CachedResource::win98MiniDecodedDataDeletionTimerForDiagnostics() const
 {
@@ -501,6 +492,15 @@ inline void CachedResource::win98MiniForEachClientCallbackTimerForDiagnostics(NO
 }
 #endif
 
+inline bool CachedResource::isMainOrMediaOrIconOrRawResource() const
+{
+    return type() == Type::MainResource
+        || type() == Type::MediaResource
+#if ENABLE(MODEL_ELEMENT)
+        || type() == Type::EnvironmentMapResource
+        || type() == Type::ModelResource
+#endif
+        || type() == Type::Icon
         || type() == Type::RawResource
         || type() == Type::Beacon
         || type() == Type::Ping;
