@@ -54,34 +54,6 @@ namespace WTF {
 #if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
 extern "C" void win98Trace(const char*);
 #define WIN98_TRACE(message) win98Trace(message)
-
-static uint32_t legacyWindowsRandomState = 0x9e3779b9;
-
-static void cryptographicallyWeakRandomValuesForLegacyWindows(std::span<uint8_t> buffer)
-{
-    WIN98_TRACE("RandomDevice: legacy weak fallback begin");
-    LARGE_INTEGER counter;
-    counter.QuadPart = 0;
-    QueryPerformanceCounter(&counter);
-
-    uint32_t state = legacyWindowsRandomState
-        ^ static_cast<uint32_t>(GetTickCount())
-        ^ static_cast<uint32_t>(GetCurrentProcessId() << 16)
-        ^ static_cast<uint32_t>(GetCurrentThreadId())
-        ^ static_cast<uint32_t>(reinterpret_cast<uintptr_t>(buffer.data()))
-        ^ static_cast<uint32_t>(counter.LowPart)
-        ^ static_cast<uint32_t>(counter.HighPart);
-
-    for (auto& byte : buffer) {
-        state ^= state << 13;
-        state ^= state >> 17;
-        state ^= state << 5;
-        byte = static_cast<uint8_t>(state & 0xff);
-    }
-
-    legacyWindowsRandomState = state ? state : 0xa5a5a5a5;
-    WIN98_TRACE("RandomDevice: legacy weak fallback end");
-}
 #else
 #define WIN98_TRACE(message) do { } while (0)
 #endif
@@ -154,12 +126,8 @@ void RandomDevice::cryptographicallyRandomValues(std::span<uint8_t> buffer)
         if (success)
             return;
     }
-#if defined(WEBKIT_WINDOWS_LEGACY_TARGET)
     WIN98_TRACE("RandomDevice: CryptoAPI failed");
-    cryptographicallyWeakRandomValuesForLegacyWindows(buffer);
-#else
     CRASH();
-#endif
 #else
 #error "This configuration doesn't have a strong source of randomness."
 // WARNING: When adding new sources of OS randomness, the randomness must
