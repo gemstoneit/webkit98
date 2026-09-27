@@ -36,6 +36,7 @@
 #include "DedicatedWorkerGlobalScope.h"
 #include "DedicatedWorkerThread.h"
 #include "Document.h"
+#include "DocumentPage.h"
 #include "ErrorEvent.h"
 #include "EventNames.h"
 #include "FetchRequestCredentials.h"
@@ -134,6 +135,11 @@ WorkerMessagingProxy::~WorkerMessagingProxy()
 
     if (RefPtr workerThread = m_workerThread)
         workerThread->clearProxies();
+}
+
+Worker* WorkerMessagingProxy::workerObject() const
+{
+    return m_workerObject.get();
 }
 
 void WorkerMessagingProxy::startWorkerGlobalScope(const URL& scriptURL, PAL::SessionID sessionID, const String& name, WorkerInitializationData&& initializationData, const ScriptBuffer& sourceCode, const ContentSecurityPolicyResponseHeaders& contentSecurityPolicyResponseHeaders, bool shouldBypassMainWorldContentSecurityPolicy, const CrossOriginEmbedderPolicy& crossOriginEmbedderPolicy, MonotonicTime timeOrigin, ReferrerPolicy referrerPolicy, WorkerType workerType, FetchRequestCredentials credentials, JSC::RuntimeFlags runtimeFlags)
