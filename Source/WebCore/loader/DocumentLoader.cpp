@@ -42,6 +42,7 @@
 #include "DNS.h"
 #include "DeprecatedGlobalSettings.h"
 #include "DocumentInlines.h"
+#include "DocumentPage.h"
 #include "DocumentParser.h"
 #include "DocumentPrefetcher.h"
 #include "DocumentQuirks.h"
