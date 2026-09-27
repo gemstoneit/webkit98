@@ -1017,7 +1017,12 @@ private:
     DeclarationStacks::FunctionStack m_functionDeclarations;
 };
 
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+// Keep parser state away from the inline scope buffer on the legacy ABI.
+typedef Vector<Scope> ScopeStack;
+#else
 typedef Vector<Scope, 10> ScopeStack;
+#endif
 
 struct ScopeRef {
     ScopeRef(ScopeStack* scopeStack, unsigned index)
