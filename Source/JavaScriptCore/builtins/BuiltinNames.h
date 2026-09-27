@@ -261,6 +261,8 @@ public:
     PrivateSymbolImpl* lookUpPrivateName(std::span<const char16_t>) const;
     PrivateSymbolImpl* lookUpPrivateName(std::span<const Latin1Character>, unsigned precomputedHash) const;
     PrivateSymbolImpl* lookUpPrivateName(std::span<const char16_t>, unsigned precomputedHash) const;
+    PrivateSymbolImpl* lookUpPrivateNameLinear(std::span<const Latin1Character>) const;
+    PrivateSymbolImpl* lookUpPrivateNameLinear(std::span<const char16_t>) const;
 
     SymbolImpl* lookUpWellKnownSymbol(const Identifier&) const;
     SymbolImpl* lookUpWellKnownSymbol(const String&) const;
@@ -268,6 +270,8 @@ public:
     SymbolImpl* lookUpWellKnownSymbol(std::span<const char16_t>) const;
     SymbolImpl* lookUpWellKnownSymbol(std::span<const Latin1Character>, unsigned precomputedHash) const;
     SymbolImpl* lookUpWellKnownSymbol(std::span<const char16_t>, unsigned precomputedHash) const;
+    SymbolImpl* lookUpWellKnownSymbolLinear(std::span<const Latin1Character>) const;
+    SymbolImpl* lookUpWellKnownSymbolLinear(std::span<const char16_t>) const;
     
     void appendExternalName(const Identifier& publicName, const Identifier& privateName);
 

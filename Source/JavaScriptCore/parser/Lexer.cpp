@@ -992,13 +992,12 @@ template <bool shouldCreateIdentifier> ALWAYS_INLINE JSTokenType Lexer<Latin1Cha
         std::span identifierSpan { identifierStart, static_cast<size_t>(currentSourcePtr() - identifierStart) };
         if (m_parsingBuiltinFunction && isBuiltinName) {
 #if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
-            // Avoid keeping BuiltinNames live across the hash call on legacy i686.
-            unsigned identifierHash = WTF::StringHasher::computeHashAndMaskTop8Bits(identifierSpan);
+            // Avoid the hash lookup's unstable i686 register path on Windows 98.
             const auto& builtinNames = m_vm.propertyNames->builtinNames();
             if (isWellKnownSymbol)
-                ident = &m_arena->makeIdentifier(m_vm, builtinNames.lookUpWellKnownSymbol(identifierSpan, identifierHash));
+                ident = &m_arena->makeIdentifier(m_vm, builtinNames.lookUpWellKnownSymbolLinear(identifierSpan));
             else
-                ident = &m_arena->makeIdentifier(m_vm, builtinNames.lookUpPrivateName(identifierSpan, identifierHash));
+                ident = &m_arena->makeIdentifier(m_vm, builtinNames.lookUpPrivateNameLinear(identifierSpan));
 #else
             if (isWellKnownSymbol)
                 ident = &m_arena->makeIdentifier(m_vm, m_vm.propertyNames->builtinNames().lookUpWellKnownSymbol(identifierSpan));

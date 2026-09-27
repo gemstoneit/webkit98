@@ -135,6 +135,31 @@ static SymbolImpl* lookUpWellKnownSymbolImpl(const BuiltinNames::WellKnownSymbol
     return iterator->value;
 }
 
+template<typename CharacterType>
+static PrivateSymbolImpl* lookUpPrivateNameLinearImpl(const BuiltinNames::PrivateNameSet& set, std::span<const CharacterType> characters)
+{
+    for (const auto& name : set) {
+        StringImpl* impl = name.impl();
+        if (!WTF::equal(impl, characters))
+            continue;
+        ASSERT(impl->isSymbol());
+        SymbolImpl* symbol = static_cast<SymbolImpl*>(impl);
+        ASSERT(symbol->isPrivate());
+        return static_cast<PrivateSymbolImpl*>(symbol);
+    }
+    return nullptr;
+}
+
+template<typename CharacterType>
+static SymbolImpl* lookUpWellKnownSymbolLinearImpl(const BuiltinNames::WellKnownSymbolMap& map, std::span<const CharacterType> characters)
+{
+    for (const auto& entry : map) {
+        if (WTF::equal(entry.key.impl(), characters))
+            return entry.value;
+    }
+    return nullptr;
+}
+
 PrivateSymbolImpl* BuiltinNames::lookUpPrivateName(std::span<const Latin1Character> characters) const
 {
     Latin1Buffer buffer { characters };
@@ -157,6 +182,16 @@ PrivateSymbolImpl* BuiltinNames::lookUpPrivateName(std::span<const char16_t> cha
 {
     UTF16Buffer buffer { characters, precomputedHash };
     return lookUpPrivateNameImpl(m_privateNameSet, buffer);
+}
+
+PrivateSymbolImpl* BuiltinNames::lookUpPrivateNameLinear(std::span<const Latin1Character> characters) const
+{
+    return lookUpPrivateNameLinearImpl(m_privateNameSet, characters);
+}
+
+PrivateSymbolImpl* BuiltinNames::lookUpPrivateNameLinear(std::span<const char16_t> characters) const
+{
+    return lookUpPrivateNameLinearImpl(m_privateNameSet, characters);
 }
 
 PrivateSymbolImpl* BuiltinNames::lookUpPrivateName(const String& string) const
@@ -191,6 +226,16 @@ SymbolImpl* BuiltinNames::lookUpWellKnownSymbol(std::span<const char16_t> charac
 {
     UTF16Buffer buffer { characters, precomputedHash };
     return lookUpWellKnownSymbolImpl(m_wellKnownSymbolsMap, buffer);
+}
+
+SymbolImpl* BuiltinNames::lookUpWellKnownSymbolLinear(std::span<const Latin1Character> characters) const
+{
+    return lookUpWellKnownSymbolLinearImpl(m_wellKnownSymbolsMap, characters);
+}
+
+SymbolImpl* BuiltinNames::lookUpWellKnownSymbolLinear(std::span<const char16_t> characters) const
+{
+    return lookUpWellKnownSymbolLinearImpl(m_wellKnownSymbolsMap, characters);
 }
 
 SymbolImpl* BuiltinNames::lookUpWellKnownSymbol(const String& string) const
