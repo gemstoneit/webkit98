@@ -34,6 +34,7 @@
 #include "DOMFormData.h"
 #include "DocumentEventLoop.h"
 #include "DocumentLoader.h"
+#include "DocumentPage.h"
 #include "DocumentSecurityOrigin.h"
 #include "DocumentView.h"
 #include "ErrorEvent.h"
@@ -63,6 +64,7 @@
 #include "ScriptExecutionContextInlines.h"
 #include "SecurityOrigin.h"
 #include "SerializedScriptValue.h"
+#include "Settings.h"
 #include "ShouldTreatAsContinuingLoad.h"
 #include "UserGestureIndicator.h"
 #include <optional>

@@ -30,6 +30,7 @@
 #include "Location.h"
 
 #include "DocumentQuirks.h"
+#include "DocumentSecurityOrigin.h"
 #include "ExceptionOr.h"
 #include "FrameLoader.h"
 #include "LocalDOMWindow.h"

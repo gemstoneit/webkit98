@@ -34,6 +34,7 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "Document.h"
+#include "DocumentPage.h"
 #include "ElementChildIteratorInlines.h"
 #include "Frame.h"
 #include "FrameSnapshotting.h"

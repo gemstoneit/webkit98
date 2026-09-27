@@ -46,6 +46,7 @@
 #include "DocumentLoader.h"
 #include "DocumentQuirks.h"
 #include "DocumentResourceLoader.h"
+#include "DocumentSecurityOrigin.h"
 #include "DocumentSyncClient.h"
 #include "DocumentType.h"
 #include "DocumentView.h"

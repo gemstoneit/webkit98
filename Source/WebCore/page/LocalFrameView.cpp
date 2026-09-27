@@ -46,6 +46,7 @@
 #include "DocumentQuirks.h"
 #include "DocumentResourceLoader.h"
 #include "DocumentSVG.h"
+#include "DocumentSecurityOrigin.h"
 #include "DocumentView.h"
 #include "Editor.h"
 #include "EventHandler.h"
