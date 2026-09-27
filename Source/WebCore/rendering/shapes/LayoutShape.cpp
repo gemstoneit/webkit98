@@ -37,6 +37,7 @@
 #include "PolygonLayoutShape.h"
 #include "RasterLayoutShape.h"
 #include "RectangleLayoutShape.h"
+#include "StyleBasicShape.h"
 #include "StylePosition.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
 #include "WindRule.h"
