@@ -65,11 +65,23 @@ public:
             status = U_ZERO_ERROR;
             m_iterator = ubrk_open(type, "", nullptr, 0, &status); // There's no reason for this to ever fail, unless there's an allocation failure, in which case we _should_ crash; that's the behavior of our allocators.
         }
+#if defined(BUILDING_WIN98MINI__)
+        if (!m_iterator || U_FAILURE(status)) {
+            if (m_iterator)
+                ubrk_close(std::exchange(m_iterator, nullptr));
+            return;
+        }
+#else
         RELEASE_ASSERT(m_iterator);
         RELEASE_ASSERT(U_SUCCESS(status));
+#endif
 
         setText(string, priorContext);
     }
+
+#if defined(BUILDING_WIN98MINI__)
+    bool isValid() const { return m_iterator; }
+#endif
 
     TextBreakIteratorICU() = delete;
     TextBreakIteratorICU(const TextBreakIteratorICU&) = delete;

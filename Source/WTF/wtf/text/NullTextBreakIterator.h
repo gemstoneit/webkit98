@@ -28,34 +28,61 @@ class NullTextBreakIterator {
     WTF_DEPRECATED_MAKE_FAST_ALLOCATED(NullTextBreakIterator);
 public:
     NullTextBreakIterator() = default;
+#if defined(BUILDING_WIN98MINI__)
+    NullTextBreakIterator(StringView string, std::span<const char16_t> priorContext) { setText(string, priorContext); }
+#endif
     NullTextBreakIterator(const NullTextBreakIterator&) = delete;
     NullTextBreakIterator(NullTextBreakIterator&&) = default;
     NullTextBreakIterator& operator=(const NullTextBreakIterator&) = delete;
     NullTextBreakIterator& operator=(NullTextBreakIterator&&) = default;
 
-    std::optional<unsigned> preceding(unsigned) const
+    std::optional<unsigned> preceding(unsigned location) const
     {
+#if defined(BUILDING_WIN98MINI__)
+        if (!location)
+            return { };
+        return std::min(location - 1, m_length);
+#else
         ASSERT_NOT_REACHED();
         return { };
+#endif
     }
 
-    std::optional<unsigned> following(unsigned) const
+    std::optional<unsigned> following(unsigned location) const
     {
+#if defined(BUILDING_WIN98MINI__)
+        if (location >= m_length)
+            return { };
+        return location + 1;
+#else
         ASSERT_NOT_REACHED();
         return { };
+#endif
     }
 
-    bool isBoundary(unsigned) const
+    bool isBoundary(unsigned location) const
     {
+#if defined(BUILDING_WIN98MINI__)
+        return location <= m_length;
+#else
         ASSERT_NOT_REACHED();
         return false;
+#endif
     }
 
-    void setText(StringView, std::span<const char16_t>)
+    void setText(StringView string, std::span<const char16_t>)
     {
+#if defined(BUILDING_WIN98MINI__)
+        m_length = string.length();
+#else
         ASSERT_NOT_REACHED();
+#endif
     }
+
+#if defined(BUILDING_WIN98MINI__)
+private:
+    unsigned m_length { 0 };
+#endif
 };
 
 }
-

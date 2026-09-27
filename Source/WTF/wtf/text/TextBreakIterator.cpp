@@ -42,13 +42,33 @@ TextBreakIteratorCache& TextBreakIteratorCache::singleton()
 TextBreakIterator::Backing TextBreakIterator::mapModeToBackingIterator(StringView string, std::span<const char16_t> priorContext, Mode mode, ContentAnalysis, const AtomString& locale)
 {
     return switchOn(mode, [string, priorContext, &locale](TextBreakIterator::LineMode lineMode) -> TextBreakIterator::Backing {
-        return TextBreakIteratorICU(string, priorContext, TextBreakIteratorICU::LineMode { lineMode.behavior }, locale);
+        TextBreakIteratorICU iterator(string, priorContext, TextBreakIteratorICU::LineMode { lineMode.behavior }, locale);
+#if defined(BUILDING_WIN98MINI__)
+        if (!iterator.isValid())
+            return TextBreakIteratorPlatform(string, priorContext);
+#endif
+        return WTF::move(iterator);
     }, [string, priorContext, &locale](TextBreakIterator::CaretMode) -> TextBreakIterator::Backing {
-        return TextBreakIteratorICU(string, priorContext, TextBreakIteratorICU::CharacterMode { }, locale);
+        TextBreakIteratorICU iterator(string, priorContext, TextBreakIteratorICU::CharacterMode { }, locale);
+#if defined(BUILDING_WIN98MINI__)
+        if (!iterator.isValid())
+            return TextBreakIteratorPlatform(string, priorContext);
+#endif
+        return WTF::move(iterator);
     }, [string, priorContext, &locale](TextBreakIterator::DeleteMode) -> TextBreakIterator::Backing {
-        return TextBreakIteratorICU(string, priorContext, TextBreakIteratorICU::CharacterMode { }, locale);
+        TextBreakIteratorICU iterator(string, priorContext, TextBreakIteratorICU::CharacterMode { }, locale);
+#if defined(BUILDING_WIN98MINI__)
+        if (!iterator.isValid())
+            return TextBreakIteratorPlatform(string, priorContext);
+#endif
+        return WTF::move(iterator);
     }, [string, priorContext, &locale](TextBreakIterator::CharacterMode) -> TextBreakIterator::Backing {
-        return TextBreakIteratorICU(string, priorContext, TextBreakIteratorICU::CharacterMode { }, locale);
+        TextBreakIteratorICU iterator(string, priorContext, TextBreakIteratorICU::CharacterMode { }, locale);
+#if defined(BUILDING_WIN98MINI__)
+        if (!iterator.isValid())
+            return TextBreakIteratorPlatform(string, priorContext);
+#endif
+        return WTF::move(iterator);
     });
 }
 
