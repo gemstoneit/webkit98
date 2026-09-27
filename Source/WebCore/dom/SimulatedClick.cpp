@@ -36,6 +36,7 @@
 #include "NodeInlines.h"
 #include "PointerEvent.h"
 #include "PointerID.h"
+#include "RenderStyle+GettersInlines.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>
 
