@@ -35,6 +35,7 @@
 #include "InlineDisplayContent.h"
 #include "LayoutBox.h"
 #include "LayoutBoxGeometry.h"
+#include "LayoutBoxInlines.h"
 #include "LayoutChildIterator.h"
 #include "LayoutContext.h"
 #include "LayoutElementBox.h"
