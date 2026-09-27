@@ -147,6 +147,18 @@ PrivateSymbolImpl* BuiltinNames::lookUpPrivateName(std::span<const char16_t> cha
     return lookUpPrivateNameImpl(m_privateNameSet, buffer);
 }
 
+PrivateSymbolImpl* BuiltinNames::lookUpPrivateName(std::span<const Latin1Character> characters, unsigned precomputedHash) const
+{
+    Latin1Buffer buffer { characters, precomputedHash };
+    return lookUpPrivateNameImpl(m_privateNameSet, buffer);
+}
+
+PrivateSymbolImpl* BuiltinNames::lookUpPrivateName(std::span<const char16_t> characters, unsigned precomputedHash) const
+{
+    UTF16Buffer buffer { characters, precomputedHash };
+    return lookUpPrivateNameImpl(m_privateNameSet, buffer);
+}
+
 PrivateSymbolImpl* BuiltinNames::lookUpPrivateName(const String& string) const
 {
     if (string.is8Bit()) {
@@ -166,6 +178,18 @@ SymbolImpl* BuiltinNames::lookUpWellKnownSymbol(std::span<const Latin1Character>
 SymbolImpl* BuiltinNames::lookUpWellKnownSymbol(std::span<const char16_t> characters) const
 {
     UTF16Buffer buffer { characters };
+    return lookUpWellKnownSymbolImpl(m_wellKnownSymbolsMap, buffer);
+}
+
+SymbolImpl* BuiltinNames::lookUpWellKnownSymbol(std::span<const Latin1Character> characters, unsigned precomputedHash) const
+{
+    Latin1Buffer buffer { characters, precomputedHash };
+    return lookUpWellKnownSymbolImpl(m_wellKnownSymbolsMap, buffer);
+}
+
+SymbolImpl* BuiltinNames::lookUpWellKnownSymbol(std::span<const char16_t> characters, unsigned precomputedHash) const
+{
+    UTF16Buffer buffer { characters, precomputedHash };
     return lookUpWellKnownSymbolImpl(m_wellKnownSymbolsMap, buffer);
 }
 

@@ -36,6 +36,7 @@
 #include <wtf/HexNumber.h>
 #include <wtf/dtoa.h>
 #include <wtf/text/MakeString.h>
+#include <wtf/text/StringHasherInlines.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
@@ -990,10 +991,20 @@ template <bool shouldCreateIdentifier> ALWAYS_INLINE JSTokenType Lexer<Latin1Cha
     if (shouldCreateIdentifier || m_parsingBuiltinFunction) {
         std::span identifierSpan { identifierStart, static_cast<size_t>(currentSourcePtr() - identifierStart) };
         if (m_parsingBuiltinFunction && isBuiltinName) {
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+            // Avoid keeping BuiltinNames live across the hash call on legacy i686.
+            unsigned identifierHash = WTF::StringHasher::computeHashAndMaskTop8Bits(identifierSpan);
+            const auto& builtinNames = m_vm.propertyNames->builtinNames();
+            if (isWellKnownSymbol)
+                ident = &m_arena->makeIdentifier(m_vm, builtinNames.lookUpWellKnownSymbol(identifierSpan, identifierHash));
+            else
+                ident = &m_arena->makeIdentifier(m_vm, builtinNames.lookUpPrivateName(identifierSpan, identifierHash));
+#else
             if (isWellKnownSymbol)
                 ident = &m_arena->makeIdentifier(m_vm, m_vm.propertyNames->builtinNames().lookUpWellKnownSymbol(identifierSpan));
             else
                 ident = &m_arena->makeIdentifier(m_vm, m_vm.propertyNames->builtinNames().lookUpPrivateName(identifierSpan));
+#endif
             if (!ident)
                 return INVALID_PRIVATE_NAME_ERRORTOK;
         } else {
