@@ -25,6 +25,8 @@
 #include "config.h"
 #include "CustomFunctionRegistry.h"
 
+#include "MutableStyleProperties.h"
+
 namespace WebCore {
 namespace Style {
 
@@ -68,4 +70,3 @@ const CustomFunction* CustomFunctionRegistry::functionForName(const AtomString& 
 
 }
 }
-
