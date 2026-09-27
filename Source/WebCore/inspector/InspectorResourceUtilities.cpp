@@ -38,6 +38,7 @@
 #include "MIMETypeRegistry.h"
 #include "MemoryCache.h"
 #include "SharedBuffer.h"
+#include <JavaScriptCore/ContentSearchUtilities.h>
 
 namespace Inspector {
 
