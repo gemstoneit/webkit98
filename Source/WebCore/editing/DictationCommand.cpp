@@ -29,6 +29,7 @@
 #include "AlternativeTextController.h"
 #include "Document.h"
 #include "DocumentMarkerController.h"
+#include "DocumentMarkers.h"
 #include "FrameDestructionObserverInlines.h"
 #include "FrameSelection.h"
 #include "InsertParagraphSeparatorCommand.h"

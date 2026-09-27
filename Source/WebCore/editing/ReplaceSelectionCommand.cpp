@@ -41,6 +41,7 @@
 #include "DOMWrapperWorld.h"
 #include "DataTransfer.h"
 #include "DocumentFragment.h"
+#include "DocumentPage.h"
 #include "DocumentView.h"
 #include "Editing.h"
 #include "EditingBehavior.h"
