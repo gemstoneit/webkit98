@@ -55,6 +55,7 @@
 #include "KeyframeEffect.h"
 #include "LayoutUnit.h"
 #include "LocalDOMWindow.h"
+#include "LocalFrameInlines.h"
 #include "LocalFrameView.h"
 #include "MouseEvent.h"
 #include "NetworkStorageSession.h"
