@@ -27,6 +27,7 @@
 
 #include "Document.h"
 #include "Element.h"
+#include "RenderStyle+GettersInlines.h"
 #include "RenderStyle.h"
 #include "StyleBuilderChecking.h"
 #include "StylePrimitiveKeyword+CSSValueConversion.h"
