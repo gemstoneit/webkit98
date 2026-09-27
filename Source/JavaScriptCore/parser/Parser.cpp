@@ -147,7 +147,13 @@ Parser<LexerType>::Parser(VM& vm, const SourceCode& source, ImplementationVisibi
     m_token.m_startPosition.offset = source.startOffset();
     m_token.m_startPosition.lineStartOffset = source.startOffset();
     m_token.m_endPosition.offset = source.startOffset();
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    // The provider cache is an optimization, and its hash table is not stable
+    // across repeated parser resumes on the Win98 target.
+    m_functionCache = nullptr;
+#else
     m_functionCache = vm.addSourceProviderCache(source.provider());
+#endif
 
     ScopeRef scope = pushScope();
     scope->setLexicallyScopedFeatures(lexicallyScopedFeatures);
