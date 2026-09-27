@@ -50,6 +50,7 @@ class SVGMarkerElement;
 class SVGMaskElement;
 class StyleImage;
 class TreeScope;
+class WeakPtrImplWithEventTargetData;
 
 namespace Style {
 class ReferenceFilterOperation;
