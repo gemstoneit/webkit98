@@ -165,6 +165,21 @@ std::optional<BytecodeIntrinsicRegistry::Entry> BytecodeIntrinsicRegistry::looku
 {
     if (!ident.isPrivateName())
         return std::nullopt;
+#if defined(WEBKIT_WINDOWS_LEGACY_TARGET) && OS(WINDOWS)
+    auto* impl = ident.impl();
+#define RETURN_BYTECODE_INTRINSIC_IF_MATCH(name) \
+    if (impl == &static_cast<SymbolImpl&>(Symbols::name##PrivateName)) \
+        return Entry(&BytecodeIntrinsicNode::emit_intrinsic_##name);
+    JSC_COMMON_BYTECODE_INTRINSIC_FUNCTIONS_EACH_NAME(RETURN_BYTECODE_INTRINSIC_IF_MATCH)
+    JSC_COMMON_BYTECODE_INTRINSIC_CONSTANTS_EACH_NAME(RETURN_BYTECODE_INTRINSIC_IF_MATCH)
+#undef RETURN_BYTECODE_INTRINSIC_IF_MATCH
+#define RETURN_LINK_TIME_CONSTANT_IF_MATCH(name, code) \
+    if (impl == &static_cast<SymbolImpl&>(Symbols::name##PrivateName)) \
+        return Entry(LinkTimeConstant::name);
+    JSC_FOREACH_LINK_TIME_CONSTANTS(RETURN_LINK_TIME_CONSTANT_IF_MATCH)
+#undef RETURN_LINK_TIME_CONSTANT_IF_MATCH
+    return std::nullopt;
+#endif
     auto iterator = m_bytecodeIntrinsicMap.find(ident.impl());
     if (iterator == m_bytecodeIntrinsicMap.end())
         return std::nullopt;
