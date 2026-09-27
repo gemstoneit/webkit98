@@ -40,6 +40,7 @@
 #include "SVGRenderSupport.h"
 #include "SVGSVGElement.h"
 #include "SVGStringList.h"
+#include "Settings.h"
 #include "StyleTransformResolver.h"
 #include "TransformOperationData.h"
 #include <wtf/NeverDestroyed.h>
