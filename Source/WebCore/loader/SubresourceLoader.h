@@ -75,7 +75,12 @@ public:
     void clearRequestCountTracker() { m_requestCountTracker = std::nullopt; }
     void resetRequestCountTracker(CachedResourceLoader& loader, const CachedResource& resource) { m_requestCountTracker = RequestCountTracker { loader, resource }; }
 #if defined(BUILDING_WIN98MINI__)
-    void win98MiniReleaseResourcesForSyntheticCompletion() { releaseResources(); }
+    void win98MiniReleaseResourcesForSyntheticCompletion()
+    {
+        ASSERT(m_state == Initialized);
+        m_state = Finishing;
+        releaseResources();
+    }
 #endif
 
     void willSendRequestInternal(ResourceRequest&&, const ResourceResponse& redirectResponse, CompletionHandler<void(ResourceRequest&&)>&&) final;
