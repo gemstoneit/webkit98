@@ -32,6 +32,7 @@
 #include "CSSStyleProperties.h"
 #include "CookieStore.h"
 #include "CustomElementRegistry.h"
+#include "DocumentPage.h"
 #include "DocumentSecurityOrigin.h"
 #include "DocumentView.h"
 #include "ExceptionOr.h"

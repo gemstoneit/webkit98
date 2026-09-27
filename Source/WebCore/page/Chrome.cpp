@@ -55,6 +55,7 @@
 #include "InspectorInstrumentation.h"
 #include "LocalDOMWindow.h"
 #include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "LocalFrameLoaderClient.h"
 #include "Page.h"
 #include "PageGroupLoadDeferrer.h"
