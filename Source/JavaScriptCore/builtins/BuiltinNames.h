@@ -272,6 +272,11 @@ public:
     SymbolImpl* lookUpWellKnownSymbol(std::span<const char16_t>, unsigned precomputedHash) const;
     SymbolImpl* lookUpWellKnownSymbolLinear(std::span<const Latin1Character>) const;
     SymbolImpl* lookUpWellKnownSymbolLinear(std::span<const char16_t>) const;
+
+    static PrivateSymbolImpl* lookUpJSCPrivateName(std::span<const Latin1Character>);
+    static PrivateSymbolImpl* lookUpJSCPrivateName(std::span<const char16_t>);
+    static SymbolImpl* lookUpJSCWellKnownSymbol(std::span<const Latin1Character>);
+    static SymbolImpl* lookUpJSCWellKnownSymbol(std::span<const char16_t>);
     
     void appendExternalName(const Identifier& publicName, const Identifier& privateName);
 

@@ -160,6 +160,48 @@ static SymbolImpl* lookUpWellKnownSymbolLinearImpl(const BuiltinNames::WellKnown
     return nullptr;
 }
 
+template<typename CharacterType, size_t length>
+static bool charactersEqualLiteral(std::span<const CharacterType> characters, const char (&literal)[length])
+{
+    if (characters.size() != length - 1)
+        return false;
+    for (size_t index = 0; index < length - 1; ++index) {
+        if (characters[index] != static_cast<CharacterType>(literal[index]))
+            return false;
+    }
+    return true;
+}
+
+template<typename CharacterType>
+static PrivateSymbolImpl* lookUpJSCPrivateNameImpl(std::span<const CharacterType> characters)
+{
+#define RETURN_PRIVATE_NAME_IF_MATCH(name) \
+    if (charactersEqualLiteral(characters, #name)) { \
+        auto* symbol = &static_cast<SymbolImpl&>(Symbols::name##PrivateName); \
+        return static_cast<PrivateSymbolImpl*>(symbol); \
+    }
+    JSC_FOREACH_BUILTIN_FUNCTION_NAME(RETURN_PRIVATE_NAME_IF_MATCH)
+    JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_PROPERTY_NAME(RETURN_PRIVATE_NAME_IF_MATCH)
+#undef RETURN_PRIVATE_NAME_IF_MATCH
+    if (charactersEqualLiteral(characters, "$vm")) {
+        auto* symbol = &static_cast<SymbolImpl&>(Symbols::dollarVMPrivateName);
+        return static_cast<PrivateSymbolImpl*>(symbol);
+    }
+    return nullptr;
+}
+
+template<typename CharacterType>
+static SymbolImpl* lookUpJSCWellKnownSymbolImpl(std::span<const CharacterType> characters)
+{
+#define RETURN_WELL_KNOWN_SYMBOL_IF_MATCH(name) \
+    if (charactersEqualLiteral(characters, #name)) \
+        return &static_cast<SymbolImpl&>(Symbols::name##Symbol);
+    JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_WELL_KNOWN_SYMBOL(RETURN_WELL_KNOWN_SYMBOL_IF_MATCH)
+    JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_EXPLICIT_RESOURCE_MANAGEMENT_WELL_KNOWN_SYMBOL(RETURN_WELL_KNOWN_SYMBOL_IF_MATCH)
+#undef RETURN_WELL_KNOWN_SYMBOL_IF_MATCH
+    return nullptr;
+}
+
 PrivateSymbolImpl* BuiltinNames::lookUpPrivateName(std::span<const Latin1Character> characters) const
 {
     Latin1Buffer buffer { characters };
@@ -236,6 +278,26 @@ SymbolImpl* BuiltinNames::lookUpWellKnownSymbolLinear(std::span<const Latin1Char
 SymbolImpl* BuiltinNames::lookUpWellKnownSymbolLinear(std::span<const char16_t> characters) const
 {
     return lookUpWellKnownSymbolLinearImpl(m_wellKnownSymbolsMap, characters);
+}
+
+PrivateSymbolImpl* BuiltinNames::lookUpJSCPrivateName(std::span<const Latin1Character> characters)
+{
+    return lookUpJSCPrivateNameImpl(characters);
+}
+
+PrivateSymbolImpl* BuiltinNames::lookUpJSCPrivateName(std::span<const char16_t> characters)
+{
+    return lookUpJSCPrivateNameImpl(characters);
+}
+
+SymbolImpl* BuiltinNames::lookUpJSCWellKnownSymbol(std::span<const Latin1Character> characters)
+{
+    return lookUpJSCWellKnownSymbolImpl(characters);
+}
+
+SymbolImpl* BuiltinNames::lookUpJSCWellKnownSymbol(std::span<const char16_t> characters)
+{
+    return lookUpJSCWellKnownSymbolImpl(characters);
 }
 
 SymbolImpl* BuiltinNames::lookUpWellKnownSymbol(const String& string) const
