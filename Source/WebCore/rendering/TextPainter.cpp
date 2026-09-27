@@ -34,6 +34,7 @@
 #include "RenderCombineText.h"
 #include "RenderLayer.h"
 #include "RenderStyle.h"
+#include "Settings.h"
 #include "StyleAppleColorFilter.h"
 #include "StyleTextShadow.h"
 #include "TextBoxPainter.h"
