@@ -26,6 +26,8 @@
 #include "config.h"
 #include "GridLayoutUtils.h"
 
+#include "StylePrimitiveNumericTypes+Evaluation.h"
+
 namespace WebCore {
 namespace Layout {
 namespace GridLayoutUtils {
