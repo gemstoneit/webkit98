@@ -28,6 +28,7 @@
 #include "CSSCounterStyleDescriptors.h"
 #include "CSSCounterStyleRegistry.h"
 #include "Document.h"
+#include "DocumentInlines.h"
 #include "FontCascade.h"
 #include "FontCascadeDescription.h"
 #include "GraphicsContext.h"
